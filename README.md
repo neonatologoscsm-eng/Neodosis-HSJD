@@ -119,6 +119,24 @@ inmunoglobulina, que en la planilla es una casilla vacía para completar a mano.
 
 ---
 
+## Distribución para probar en la unidad
+
+Dos vías, ambas automáticas desde GitHub Actions:
+
+| Vía | Cómo se genera | Para quién |
+|---|---|---|
+| **Enlace web (PWA)** | `.github/workflows/pages.yml` publica el sitio en GitHub Pages en cada push. Se instala en el teléfono desde el navegador («Añadir a pantalla de inicio») y funciona sin conexión | Todo el equipo, en Android, iPhone o computador |
+| **APK de Android** | `.github/workflows/apk.yml` empaqueta la app con Capacitor y publica el archivo en el prelanzamiento `apk-prueba` de *Releases*. Ejecutar desde la pestaña **Actions → Compilar APK de prueba → Run workflow** | Quien prefiera una app instalada |
+
+El APK se firma con la clave de depuración de Android: sirve para probar, no para
+publicar en Google Play. Para la versión definitiva hay que crear una clave propia
+y firmar un `assembleRelease` o un Android App Bundle (ver `packaging/README.md`).
+
+Las instrucciones para los colegas que van a probarla están en
+[`docs/PRUEBA.md`](docs/PRUEBA.md).
+
+---
+
 ## Estructura del proyecto
 
 ```
@@ -131,6 +149,9 @@ js/app.js                   Flujo de pasos, catálogo buscable, estado y render
 sw.js, manifest.webmanifest Uso sin conexión / instalación como app
 assets/                     Logotipo de la unidad
 verificacion/               Intérprete de Excel y prueba de fidelidad
+packaging/                  Empaquetado Android (Capacitor) para el APK de prueba
+.github/workflows/          Publicación del sitio y compilación del APK
+docs/PRUEBA.md              Instrucciones para el equipo que prueba la app
 ```
 
 ### Para actualizar dosis o agregar un fármaco

@@ -1,0 +1,73 @@
+name: Compilar APK de prueba
+
+on:
+  workflow_dispatch:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write
+
+jobs:
+  apk:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Copiar la aplicación web al empaquetado
+        run: |
+          rm -rf packaging/www && mkdir -p packaging/www
+          cp index.html manifest.webmanifest sw.js packaging/www/
+          cp -r css js assets packaging/www/
+
+      - name: Instalar Capacitor y generar el proyecto Android
+        working-directory: packaging
+        run: |
+          npm install
+          npx cap add android
+          npx cap sync android
+
+      - name: Iconos y pantalla de inicio con el logo de la unidad
+        working-directory: packaging
+        continue-on-error: true
+        run: npx @capacitor/assets generate --android
+
+      - name: Compilar el APK (firma de depuración)
+        working-directory: packaging/android
+        run: |
+          chmod +x gradlew
+          ./gradlew assembleDebug --no-daemon
+
+      - name: Nombrar el archivo
+        id: apk
+        run: |
+          NOMBRE="NeoDosis-HSJD-prueba-${{ github.run_number }}.apk"
+          cp packaging/android/app/build/outputs/apk/debug/app-debug.apk "$NOMBRE"
+          echo "nombre=$NOMBRE" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: apk-de-prueba
+          path: ${{ steps.apk.outputs.nombre }}
+          if-no-files-found: error
+
+      - name: Publicar como prelanzamiento descargable
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if ! gh release view apk-prueba >/dev/null 2>&1; then
+            gh release create apk-prueba \
+              --prerelease \
+              --title "NeoDosis HSJD · versión de prueba" \
+              --notes "APK de prueba firmado con la clave de depuración de Android, para instalar y evaluar en la unidad. No es la versión definitiva ni está publicada en Google Play. Al instalarlo Android pedirá autorizar la instalación desde esta fuente."
+          fi
+          gh release upload apk-prueba "${{ steps.apk.outputs.nombre }}" --clobber
