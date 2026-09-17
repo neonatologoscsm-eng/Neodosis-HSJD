@@ -1,5 +1,8 @@
 /* =====================================================================
-   NeoDosis HSJD — lógica de la aplicación
+   NeoDosis HSJD — aplicación
+   Flujo en tres pasos: paciente → selección de fármacos → dosis.
+   Los cálculos viven en js/calculo.js y los datos en js/data.js y
+   js/antimicrobianos.js (réplica verificada de la planilla).
    ===================================================================== */
 (function () {
 'use strict';
@@ -8,551 +11,494 @@
 const $  = s => document.querySelector(s);
 const $$ = s => Array.from(document.querySelectorAll(s));
 const esNum = v => typeof v === 'number' && isFinite(v);
+const esc = s => String(s == null ? '' : s)
+  .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+const sinTildes = t => t.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+const idHtml = t => sinTildes(t).replace(/[^a-z0-9]+/g, '-');
 
-/** Formato numérico chileno (coma decimal). */
 function num(v, dec) {
   if (!esNum(v)) return '—';
   return v.toLocaleString('es-CL', { minimumFractionDigits: dec, maximumFractionDigits: dec });
 }
-/** Dosis: 2 decimales bajo 1, 1 decimal bajo 10, 0 sobre 10. */
 function numDosis(v) {
   if (!esNum(v)) return '—';
   const a = Math.abs(v);
   return num(v, a < 1 ? 3 : a < 10 ? 2 : a < 100 ? 1 : 0);
 }
-/** Volúmenes: siempre 2 decimales (la planilla mostraba 1 ó 2). */
 const numVol = v => num(v, 2);
-const esc = s => String(s == null ? '' : s)
-  .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 
-/* Registro de fórmulas originales para el modal de auditoría. */
+const ICONO_CHECK = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 16.2 4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4L9 16.2Z"/></svg>';
+const ICONO_X = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12 19 6.41Z"/></svg>';
+const ICONO_AVISO = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M1 21h22L12 2 1 21Zm12-3h-2v-2h2v2Zm0-4h-2v-4h2v4Z"/></svg>';
+
+/* Fórmulas originales, para el diálogo de auditoría. */
 const FORMULAS = {};
-let formulaId = 0;
-function verFormula(titulo, lineas) {
-  const id = 'f' + (++formulaId);
-  FORMULAS[id] = { titulo, lineas: lineas.filter(l => l && l[1]) };
-  if (!FORMULAS[id].lineas.length) return '';
-  return `<button type="button" class="btn-formula" data-formula="${id}"
-     title="Ver la fórmula original de la planilla">ƒx</button>`;
+let nFormula = 0;
+function fx(titulo, lineas) {
+  const utiles = lineas.filter(l => l && l[1]);
+  if (!utiles.length) return '';
+  const id = 'f' + (++nFormula);
+  FORMULAS[id] = { titulo, lineas: utiles };
+  return `<button type="button" class="fx" data-formula="${id}" title="Ver la fórmula original de la planilla">ƒx</button>`;
 }
 
 /* ------------------------------------------------------------- estado */
-const LS = 'neodosis-hsjd-v1';
+const LS = 'neodosis-hsjd-v2';
 const estado = {
-  nombre: '', diagnostico: '', cupo: '',
-  peso: null, talla: null, fn: '', edad: null, egSem: null, egDia: 0,
-  infusiones: {},           // dosis en 1 cc modificadas por el usuario
-  igPresentacion: 10000, igDosis: 400, datosColapsados: false,
-  tema: '', vista: 'bolos'   // tema '' = sigue la preferencia del sistema
+  paso: 1,
+  peso: null, egSem: null, egDia: null, edad: null, fn: '',
+  nombre: '', cupo: '', diagnostico: '',
+  sel: [], infusiones: {}, igPresentacion: 10000, igDosis: 400,
+  tema: ''
 };
-
-function guardar() {
-  try { localStorage.setItem(LS, JSON.stringify(estado)); } catch (e) { /* modo privado */ }
-}
+const guardar = () => { try { localStorage.setItem(LS, JSON.stringify(estado)); } catch (e) {} };
 function restaurar() {
-  try {
-    const raw = localStorage.getItem(LS);
-    if (raw) Object.assign(estado, JSON.parse(raw));
-  } catch (e) { /* ignorar */ }
+  try { const r = localStorage.getItem(LS); if (r) Object.assign(estado, JSON.parse(r)); } catch (e) {}
+  if (!Array.isArray(estado.sel)) estado.sel = [];
 }
 
-/* ----------------------------------------------------------- contexto */
-function contexto() {
-  return NeoCalc.contexto({
-    pesoG: estado.peso, edadDias: estado.edad, egSem: estado.egSem, egDia: estado.egDia
-  });
-}
+const contexto = () => NeoCalc.contexto({
+  pesoG: estado.peso, edadDias: estado.edad, egSem: estado.egSem, egDia: estado.egDia
+});
+const hayPeso = () => esNum(estado.peso) && estado.peso > 0;
 
-function diasDesde(fechaISO) {
-  if (!fechaISO) return null;
+function diasDesde(iso) {
+  if (!iso) return null;
   const hoy = new Date(); hoy.setHours(0, 0, 0, 0);
-  const p = fechaISO.split('-').map(Number);
+  const p = iso.split('-').map(Number);
   const fn = new Date(p[0], p[1] - 1, p[2]);
   if (isNaN(fn)) return null;
   return Math.round((hoy - fn) / 86400000);
 }
 
-/* ============================== BOLOS ================================ */
-const calcBolo = (linea, ctx) => NeoCalc.bolo(linea, ctx);
+/* ---------------------------------------------------------- catálogo */
+const CATALOGO = [];
+BOLOS_MEDICAMENTOS.forEach(m => CATALOGO.push({
+  id: 'b|Medicamentos|' + m.nombre, tipo: 'bolo', grupo: 'Bolos',
+  nombre: m.nombre, sub: m.conc + ' · ' + m.via, ref: m, hoja: 'Medicamentos'
+}));
+BOLOS_OTROS.forEach(m => CATALOGO.push({
+  id: 'b|Otros medicamentos|' + m.nombre, tipo: 'bolo', grupo: 'Bolos',
+  nombre: m.nombre, sub: m.conc + ' · ' + m.via, ref: m, hoja: 'Otros medicamentos'
+}));
+INFUSIONES.forEach(i => CATALOGO.push({
+  id: 'i|' + i.hoja + '|' + i.nombre, tipo: 'infusion', grupo: 'Infusiones continuas',
+  nombre: i.nombre, sub: i.rango, ref: i, alias: 'bic goteo perfusion'
+}));
+ANTIMICROBIANOS.forEach(m => CATALOGO.push({
+  id: 'a|' + m.nombre, tipo: 'anti', grupo: m.grupo,
+  nombre: m.nombre, sub: (m.concSin || '') + ' · ' + m.via, ref: m
+}));
+CATALOGO.push({
+  id: 'e|ig', tipo: 'ig', grupo: 'Otros cálculos', nombre: 'Inmunoglobulina EV',
+  sub: 'Dosis, volumen y velocidades de infusión', alias: 'igiv ig ev gammaglobulina'
+});
+CATALOGO.push({
+  id: 'e|rea', tipo: 'rea', grupo: 'Otros cálculos', nombre: 'Reanimación',
+  sub: 'N° de TET, distancia a la boca y cardioversión',
+  alias: 'tet tubo endotraqueal intubacion cardioversion joules paro'
+});
+CATALOGO.forEach(c => {
+  c.busca = sinTildes(c.nombre + ' ' + (c.sub || '') + ' ' + (c.alias || ''));
+  /* Etiqueta corta para los chips: distingue el bolo de la infusión continua. */
+  c.chip = c.nombre + (c.tipo === 'infusion' ? ' · infusión' : '');
+});
+const porId = id => CATALOGO.find(c => c.id === id);
+const GRUPOS = ['Bolos', 'Infusiones continuas', 'Antibióticos', 'Antivirales', 'Antifúngicos', 'Otros cálculos'];
 
-function cardBolo(m, ctx, hoja) {
+/* ====================================================================
+   FICHAS DE RESULTADO
+   ==================================================================== */
+function fichaBolo(item, ctx) {
+  const m = item.ref;
   const lineas = m.lineas.map(l => {
-    const r = calcBolo(l, ctx);
-    const f = verFormula(`${m.nombre}${l.etiqueta ? ' · ' + l.etiqueta : ''}`, [
-      ['Dosis a administrar', l.xlDosis], ['Volumen a administrar', l.xlVol]
-    ]);
+    const r = NeoCalc.bolo(l, ctx);
     return `
       <div class="linea">
         <div>
           ${l.etiqueta ? `<div class="linea__etq">${esc(l.etiqueta)}</div>` : ''}
-          <div class="linea__dosis">${esc(l.dosisTxt)}</div>
-          ${f}
+          <div class="linea__det">${esc(l.dosisTxt)}${fx(m.nombre + (l.etiqueta ? ' · ' + l.etiqueta : ''),
+            [['Dosis a administrar', l.xlDosis], ['Volumen a administrar', l.xlVol]])}</div>
         </div>
-        <div class="resultado">
-          <span class="valor valor--dosis"><b>${numDosis(r.dosis)}</b><i>${esc(l.unidad)}</i></span>
+        <div class="valores">
+          <span class="valor"><b>${numDosis(r.dosis)}</b><i>${esc(l.unidad)}</i></span>
           ${r.vol != null ? `<span class="valor valor--vol"><b>${numVol(r.vol)}</b><i>mL</i></span>` : ''}
         </div>
       </div>`;
   }).join('');
 
-  return `
-    <article class="card" data-buscar="${esc(m.nombre.toLowerCase())}">
-      <header class="card__head">
+  return `<article class="ficha">
+    <header class="ficha__cab">
+      <div><div class="ficha__nombre">${esc(m.nombre)}</div>
+        <div class="ficha__conc">${esc(m.conc)}</div></div>
+      <span class="via">${esc(m.via)}</span>
+    </header>
+    <div class="ficha__cuerpo">${lineas}</div>
+    <footer class="ficha__pie">
+      <span><b>Diluir en:</b> ${esc(m.diluir)}</span>
+      <span><b>Tiempo:</b> ${esc(m.tiempo)}</span>
+    </footer>
+  </article>`;
+}
+
+function fichaInfusion(item, ctx) {
+  const inf = item.ref;
+  const clave = inf.hoja + '|' + inf.nombre;
+  const propia = estado.infusiones[clave];
+  const r = NeoCalc.infusion(inf, ctx, esNum(propia) ? propia : undefined);
+  const unidadCorta = inf.unidad.replace(/\s*\/\s*mL$/, '');
+  return `<article class="ficha">
+    <header class="ficha__cab">
+      <div><div class="ficha__nombre">${esc(inf.nombre)}</div>
+        <div class="ficha__conc">Dosis recomendada: ${esc(inf.rango)}</div></div>
+      <span class="via">Infusión</span>
+    </header>
+    <div class="ficha__cuerpo">
+      <div class="ajuste">
+        <label for="inf-${idHtml(clave)}">Dosis en 1 cc</label>
+        <input type="number" id="inf-${idHtml(clave)}" data-infusion="${esc(clave)}"
+               step="0.01" min="0" inputmode="decimal" value="${r.D}">
+        <label>${esc(unidadCorta)}</label>
+      </div>
+      <div class="linea">
         <div>
-          <div class="card__nombre">${esc(m.nombre)}</div>
-          <div class="card__sub">${esc(m.conc)}</div>
+          <div class="linea__etq">Preparación en 24 mL</div>
+          <div class="linea__det">1 mL/h aporta ${numDosis(r.D)} ${esc(unidadCorta)}${
+            fx(inf.nombre + ' · preparación en 24 mL', [['Preparación en 24 mL', inf.xl]])}</div>
         </div>
-        <span class="via">${esc(m.via)}</span>
-      </header>
-      <div class="card__body">${lineas}</div>
-      <footer class="card__pie">
-        <span><b>Diluir en:</b> ${esc(m.diluir)}</span>
-        <span><b>Tiempo:</b> ${esc(m.tiempo)}</span>
-        <span><b>Hoja:</b> ${esc(hoja)}</span>
-      </footer>
-    </article>`;
-}
-
-function vistaBolos(ctx) {
-  return `
-    <h2 class="seccion__titulo">Bolos · hoja «Medicamentos»</h2>
-    <div class="grid">${BOLOS_MEDICAMENTOS.map(m => cardBolo(m, ctx, 'Medicamentos')).join('')}</div>
-    <h2 class="seccion__titulo">Bolos · hoja «Otros medicamentos»</h2>
-    <div class="grid">${BOLOS_OTROS.map(m => cardBolo(m, ctx, 'Otros medicamentos')).join('')}</div>`;
-}
-
-/* =========================== INFUSIONES ============================== */
-function dosisPorCC(inf) {
-  const k = inf.hoja + '|' + inf.nombre;
-  return esNum(estado.infusiones[k]) ? estado.infusiones[k] : inf.porCC;
-}
-const calcInfusion = (inf, ctx) => NeoCalc.infusion(inf, ctx, dosisPorCC(inf));
-
-const slug = t => t.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, '-');
-
-function cardInfusion(inf, ctx) {
-  const r = calcInfusion(inf, ctx);
-  const clave = esc(inf.hoja + '|' + inf.nombre);
-  const id = 'inf-' + slug(inf.hoja + '-' + inf.nombre);
-  const porHora = inf.factor === 1440 ? 'min' : 'hr';
-  return `
-    <article class="card" data-buscar="${esc(inf.nombre.toLowerCase())}">
-      <header class="card__head">
-        <div>
-          <div class="card__nombre">${esc(inf.nombre)}</div>
-          <div class="card__sub">Dosis recomendada: ${esc(inf.rango)}</div>
-        </div>
-        <span class="via">BIC</span>
-      </header>
-      <div class="card__body">
-        <div class="input-linea">
-          <label for="${id}">Dosis a utilizar en 1 cc</label>
-          <input type="number" id="${id}" data-infusion="${clave}" step="0.01" min="0"
-                 inputmode="decimal" value="${r.D}">
-          <label>${esc(inf.unidad)}</label>
-        </div>
-        <div class="linea">
-          <div>
-            <div class="linea__etq">Preparación en 24 mL</div>
-            <div class="linea__dosis">1 mL/h aporta ${numDosis(r.D)} ${esc(inf.unidad.split('/ mL')[0].trim())}</div>
-            ${verFormula(inf.nombre + ' · preparación en 24 mL', [['Preparación en 24 mL', inf.xl]])}
-          </div>
-          <div class="resultado">
-            <span class="valor valor--vol"><b>${numDosis(r.prep)}</b><i>${esc(inf.prepUnidad)}</i></span>
-          </div>
+        <div class="valores">
+          <span class="valor valor--vol"><b>${numDosis(r.prep)}</b><i>${esc(inf.prepUnidad)}</i></span>
         </div>
       </div>
-      <footer class="card__pie">
-        <span><b>Preparar en:</b> ${esc(inf.preparar)}</span>
-        <span><b>Base:</b> por ${porHora === 'min' ? 'minuto' : 'hora'}</span>
-        <span><b>Hoja:</b> ${esc(inf.hoja)}</span>
-      </footer>
-    </article>`;
+    </div>
+    <footer class="ficha__pie">
+      <span><b>Preparar en:</b> ${esc(inf.preparar)}</span>
+      <span><b>Completar hasta:</b> 24 mL</span>
+    </footer>
+  </article>`;
 }
 
-function vistaInfusiones(ctx) {
-  const med = INFUSIONES.filter(i => i.hoja === 'Medicamentos');
-  const otr = INFUSIONES.filter(i => i.hoja === 'Otros medicamentos');
-  return `
-    <p class="seccion__intro">Preparación para una jeringa de <strong>24 mL</strong>: la cantidad de fármaco
-      indicada, completada con el suero señalado hasta 24 mL, entrega la dosis por mL definida a la izquierda
-      (1 mL/h = esa dosis). Puede modificar la dosis por cc, tal como en la planilla.</p>
-    <h2 class="seccion__titulo">Infusiones continuas · hoja «Medicamentos»</h2>
-    <div class="grid">${med.map(i => cardInfusion(i, ctx)).join('')}</div>
-    <h2 class="seccion__titulo">Infusiones continuas · hoja «Otros medicamentos»</h2>
-    <div class="grid">${otr.map(i => cardInfusion(i, ctx)).join('')}</div>`;
-}
-
-/* ========================= ANTIMICROBIANOS =========================== */
-function filaAnti(m, e, ctx) {
-  const r = NeoCalc.anti(m, e, ctx, XL_FALSE);
-  const { dpk, dosis, nulo, unidad } = r;
-
-  const interTxt = r.intervalo === null ? '<span class="nulo">sin resultado</span>'
-    : (esNum(r.intervalo) ? `<span class="intervalo">c/${r.intervalo} h</span>`
-                          : `<span class="intervalo">${esc(r.intervalo)}</span>`);
-
-  let volSin = '—', volCon = '—';
-  if (r.volTxt) {
-    volSin = `<span class="num">${esc(r.volTxt)}</span>`;
-  } else {
-    if (r.volSin != null) volSin = `<span class="vol">${numVol(r.volSin)}</span> <span class="num">mL</span>`;
-    if (r.volCon != null) volCon = `<span class="vol">${numVol(r.volCon)}</span> <span class="num">mL</span>`;
-  }
-
-  const f = verFormula(`${m.nombre}${e.label ? ' · ' + e.label : ''}`, [
-    ['Dosis por Kg', e.dosisXl], ['Intervalo', e.intervaloXl],
-    ['Volumen sin restricción', e.volSinXl], ['Volumen con restricción', e.volConXl]
-  ]);
-
-  return `
-    <tr>
-      <td>${e.label ? `<span class="esq">${esc(e.label)}</span>` : '<span class="esq">Dosis única</span>'}${f}</td>
-      <td class="num">${nulo ? '<span class="nulo">sin resultado</span>' : numDosis(dpk) + ' ' + unidad + '/Kg'}</td>
-      <td class="num destacado">${dosis != null ? numDosis(dosis) + ' ' + unidad : '—'}</td>
-      <td class="num">${interTxt}</td>
-      <td class="num">${volSin}</td>
-      <td class="num">${volCon}</td>
+function fichaAnti(item, ctx) {
+  const m = item.ref;
+  const filas = m.esquemas.map(e => {
+    const r = NeoCalc.anti(m, e, ctx, XL_FALSE);
+    const inter = r.intervalo === null ? '<span class="nulo">sin resultado</span>'
+      : esNum(r.intervalo) ? `<span class="intervalo">c/${r.intervalo} h</span>`
+      : `<span class="intervalo">${esc(r.intervalo)}</span>`;
+    let vSin = '—', vCon = '—';
+    if (r.volTxt) vSin = `<span class="num">${esc(r.volTxt)}</span>`;
+    else {
+      if (r.volSin != null) vSin = `<span class="vol">${numVol(r.volSin)}</span> <span class="num">mL</span>`;
+      if (r.volCon != null) vCon = `<span class="vol">${numVol(r.volCon)}</span> <span class="num">mL</span>`;
+    }
+    return `<tr>
+      <td><span class="esq">${esc(e.label || 'Dosis')}</span>${fx(m.nombre + (e.label ? ' · ' + e.label : ''),
+        [['Dosis por Kg', e.dosisXl], ['Intervalo', e.intervaloXl],
+         ['Volumen sin restricción', e.volSinXl], ['Volumen con restricción', e.volConXl]])}</td>
+      <td class="num" data-etq="Dosis por Kg">${r.nulo ? '<span class="nulo">sin resultado</span>' : numDosis(r.dpk) + ' ' + r.unidad + '/Kg'}</td>
+      <td class="num fuerte" data-etq="Dosis a administrar">${r.dosis != null ? numDosis(r.dosis) + ' ' + r.unidad : '—'}</td>
+      <td class="num" data-etq="Intervalo">${inter}</td>
+      <td class="num" data-etq="Administrar (sin restricción)">${vSin}</td>
+      <td class="num" data-etq="Administrar (con restricción)">${vCon}</td>
     </tr>`;
-}
-
-function cardAnti(m, ctx) {
-  const alertas = (m.alertas || []).filter(a => a.cuando(ctx))
-    .map(a => `<div class="alerta"><span>⚠</span><div><b>Revisar fórmula de la planilla</b>${esc(a.texto)}</div></div>`).join('');
-  return `
-    <article class="card" data-buscar="${esc(m.nombre.toLowerCase())}">
-      <header class="card__head">
-        <div>
-          <div class="card__nombre">${esc(m.nombre)}</div>
-          <div class="card__sub">
-            Sin restricción de volumen: ${esc(m.concSin || '—')}${m.concCon ? ' · Con restricción: ' + esc(m.concCon) : ''}
-          </div>
-        </div>
-        <span class="via">${esc(m.via)}</span>
-      </header>
-      <div class="card__body">
-        <table class="tabla">
-          <thead><tr>
-            <th>Esquema</th><th>Dosis por Kg</th><th>Dosis a administrar</th>
-            <th>Intervalo</th><th>Administrar<br>sin restricción</th><th>Administrar<br>con restricción</th>
-          </tr></thead>
-          <tbody>${m.esquemas.map(e => filaAnti(m, e, ctx)).join('')}</tbody>
-        </table>
-        ${m.nota ? `<p class="nota">${esc(m.nota)}</p>` : ''}
-        ${alertas}
-      </div>
-      <footer class="card__pie">
-        <span><b>Diluir en:</b> ${esc(m.diluir)}</span>
-        <span><b>Tiempo de infusión:</b> ${esc(m.tiempo)}</span>
-      </footer>
-    </article>`;
-}
-
-function vistaAnti(ctx) {
-  const grupos = ['Antibióticos', 'Antivirales', 'Antifúngicos'];
-  const falta = (!ctx.hayEG || !ctx.hayEdad)
-    ? `<p class="paciente__aviso">Muchos antimicrobianos ajustan dosis e intervalo según <strong>EG corregida</strong> y
-       <strong>edad cronológica</strong>. Complete edad gestacional y edad en días para obtener los valores correctos.</p>` : '';
-  return falta + grupos.map(g => `
-    <h2 class="seccion__titulo">${g}</h2>
-    <div class="grid grid--ancha">
-      ${ANTIMICROBIANOS.filter(m => m.grupo === g).map(m => cardAnti(m, ctx)).join('')}
-    </div>`).join('');
-}
-
-/* ========================= INMUNOGLOBULINA =========================== */
-const calcIG = ctx => NeoCalc.ig(ctx, estado.igPresentacion, estado.igDosis);
-
-function vistaIG(ctx) {
-  const r = calcIG(ctx);
-  const horas = [
-    ['0', ''], ['0,5', ''], ['1', ''],
-    ['aviso', 'Si paciente tolera bien la primera hora, subir goteo según volumen de horas posteriores'],
-    ['2', ''], ['3', ''], ['4', ''], ['5', ''], ['6', ''],
-    ['aviso', 'En caso de que aparezcan reacciones adversas, disminuir la velocidad de infusión o suspender']
-  ];
-  const filas = horas.map(h => h[0] === 'aviso'
-    ? `<tr class="aviso"><td colspan="8">${esc(h[1])}</td></tr>`
-    : `<tr><td class="hora">${h[0]}</td>${'<td class="libre"></td>'.repeat(7)}</tr>`).join('');
-
-  return `
-    <h2 class="seccion__titulo">Inmunoglobulina EV</h2>
-    <div class="grid grid--ancha">
-      <article class="card" data-buscar="inmunoglobulina igiv">
-        <header class="card__head">
-          <div>
-            <div class="card__nombre">Inmunoglobulina EV</div>
-            <div class="card__sub">Presentación en 100 mL · vía exclusiva</div>
-          </div>
-          <span class="via">EV</span>
-        </header>
-        <div class="card__body">
-          <div class="input-linea">
-            <label for="igPres">Presentación (mg/100 mL)</label>
-            <select id="igPres">
-              <option value="5000"${estado.igPresentacion === 5000 ? ' selected' : ''}>5.000 mg / 100 mL</option>
-              <option value="10000"${estado.igPresentacion === 10000 ? ' selected' : ''}>10.000 mg / 100 mL</option>
-            </select>
-          </div>
-          <div class="input-linea">
-            <label for="igDosis">Dosis por Kg (mg)</label>
-            <select id="igDosis">
-              ${[400, 500, 1000].map(v => `<option value="${v}"${estado.igDosis === v ? ' selected' : ''}>${v} mg/Kg</option>`).join('')}
-            </select>
-          </div>
-
-          <div class="linea">
-            <div><div class="linea__etq">Dosis a administrar</div>
-              ${verFormula('Inmunoglobulina · dosis', [['Dosis a administrar', '=(B6*D12)/1000']])}</div>
-            <div class="resultado"><span class="valor valor--dosis"><b>${numDosis(r.dosis)}</b><i>mg</i></span></div>
-          </div>
-          <div class="linea">
-            <div><div class="linea__etq">Volumen total a administrar</div>
-              ${verFormula('Inmunoglobulina · volumen', [['Volumen total', '=(E12*100)/B12']])}</div>
-            <div class="resultado"><span class="valor valor--vol"><b>${numVol(r.vol)}</b><i>mL</i></span></div>
-          </div>
-          <div class="linea">
-            <div><div class="linea__etq">Velocidad · primeros 60 min</div>
-              ${verFormula('Inmunoglobulina · velocidad inicial', [['Primeros 60 min',
-                '=SI(Y(B12=5000;O(D12=400;D12=500));0,015*B6*60/1000; … ;"ERROR")']])}</div>
-            <div class="resultado"><span class="valor valor--vol"><b>${num(r.v1, 1)}</b><i>mL/h</i></span></div>
-          </div>
-          <div class="linea">
-            <div><div class="linea__etq">Velocidad · horas posteriores</div>
-              ${verFormula('Inmunoglobulina · velocidad posterior', [['Horas posteriores',
-                '=SI(Y(B12=5000;O(D12=400;D12=500));0,04*B6*60/1000; … ;"ERROR")']])}</div>
-            <div class="resultado"><span class="valor valor--vol"><b>${num(r.v2, 1)}</b><i>mL/h</i></span></div>
-          </div>
-          <div class="linea">
-            <div><div class="linea__etq">Tiempo total estimado</div>
-              <div class="linea__dosis">Calculado por la app (la planilla deja esta casilla para completar a mano)</div></div>
-            <div class="resultado"><span class="valor valor--dosis"><b>${num(r.total, 1)}</b><i>h</i></span></div>
-          </div>
-        </div>
-        <footer class="card__pie">
-          <span><b>Vía de administración:</b> vía exclusiva (central o periférica)</span>
-        </footer>
-      </article>
-
-      <article class="card">
-        <header class="card__head"><div><div class="card__nombre">Control de signos vitales</div>
-          <div class="card__sub">Registro durante la infusión</div></div></header>
-        <div class="card__body">
-          <table class="tabla tabla--registro">
-            <thead><tr><th>Hora</th><th>PA</th><th>PAM</th><th>FC</th><th>FR</th><th>Sat. O₂</th><th>T°</th><th>Obs.</th></tr></thead>
-            <tbody>${filas}</tbody>
-          </table>
-          <table class="tabla tabla--registro" style="margin-top:.8rem">
-            <thead><tr><th colspan="2">Información adicional</th></tr></thead>
-            <tbody>
-              <tr><td class="hora">Vía de administración (vía exclusiva)</td><td class="libre">central / periférica</td></tr>
-              <tr><td class="hora">Fecha de vencimiento</td><td class="libre"></td></tr>
-              <tr><td class="hora">Lote</td><td class="libre"></td></tr>
-              <tr><td class="hora">Observaciones</td><td class="libre"></td></tr>
-            </tbody>
-          </table>
-          <div class="firmas">
-            <div>Firma Médico Tratante</div>
-            <div>Firma Matrón/a encargado/a</div>
-          </div>
-        </div>
-      </article>
-    </div>`;
-}
-
-/* =========================== REANIMACIÓN ============================= */
-function vistaReanimacion(ctx) {
-  const { tet, dist, car1, car2 } = NeoCalc.reanimacion(ctx);
-  return `
-    <h2 class="seccion__titulo">Reanimación</h2>
-    <div class="grid">
-      <article class="card" data-buscar="tet tubo endotraqueal intubación">
-        <header class="card__head"><div><div class="card__nombre">Vía aérea</div>
-          <div class="card__sub">Según peso</div></div></header>
-        <div class="card__body">
-          <div class="linea">
-            <div><div class="linea__etq">N° TET (DI)</div>
-              <div class="linea__dosis">&gt; 2.000 g → 3,5 · 1.000-2.000 g → 3 · &lt; 1.000 g → 2,5</div>
-              ${verFormula('N° TET', [['Diámetro interno', '=SI(B6>2000;3,5;SI(B6<1000;2,5;3))']])}</div>
-            <div class="resultado"><span class="valor valor--dosis"><b>${ctx.hayPeso ? num(tet, 1) : '—'}</b><i>mm</i></span></div>
-          </div>
-          <div class="linea">
-            <div><div class="linea__etq">Distancia a la boca</div>
-              ${verFormula('Distancia a la boca', [['Fijación al labio', '=(B6/1009)+6']])}</div>
-            <div class="resultado"><span class="valor valor--dosis"><b>${ctx.hayPeso ? num(dist, 1) : '—'}</b><i>cm</i></span></div>
-          </div>
-          <div class="alerta"><span>⚠</span><div><b>Nota de la planilla</b>
-            La fórmula original divide el peso por 1.009 en vez de 1.000 (regla peso en Kg + 6). La diferencia
-            es menor a 0,03 cm; la app reproduce la fórmula tal como está en la planilla.</div></div>
-        </div>
-      </article>
-
-      <article class="card" data-buscar="cardioversión desfibrilación joules">
-        <header class="card__head"><div><div class="card__nombre">Cardioversión (sincronizada)</div>
-          <div class="card__sub">Energía según peso</div></div></header>
-        <div class="card__body">
-          <div class="linea">
-            <div><div class="linea__etq">1ª descarga</div><div class="linea__dosis">0,5 J/Kg</div>
-              ${verFormula('Cardioversión 1ª', [['Energía', '=0,5*B6/1000']])}</div>
-            <div class="resultado"><span class="valor valor--dosis"><b>${ctx.hayPeso ? num(car1, 1) : '—'}</b><i>Joules</i></span></div>
-          </div>
-          <div class="linea">
-            <div><div class="linea__etq">2ª descarga</div><div class="linea__dosis">2 J/Kg</div>
-              ${verFormula('Cardioversión 2ª', [['Energía', '=2*B6/1000']])}</div>
-            <div class="resultado"><span class="valor valor--dosis"><b>${ctx.hayPeso ? num(car2, 1) : '—'}</b><i>Joules</i></span></div>
-          </div>
-        </div>
-      </article>
-
-      <article class="card" data-buscar="adrenalina reanimación">
-        <header class="card__head"><div><div class="card__nombre">Adrenalina en reanimación</div>
-          <div class="card__sub">0,1 mg/mL (1:10.000)</div></div><span class="via">EV / ET</span></header>
-        <div class="card__body">
-          ${BOLOS_MEDICAMENTOS.find(m => m.nombre === 'Adrenalina').lineas.map(l => {
-            const r = calcBolo(l, ctx);
-            return `<div class="linea">
-              <div><div class="linea__etq">${esc(l.etiqueta)}</div><div class="linea__dosis">${esc(l.dosisTxt)}</div></div>
-              <div class="resultado">
-                <span class="valor valor--dosis"><b>${numDosis(r.dosis)}</b><i>mg</i></span>
-                <span class="valor valor--vol"><b>${numVol(r.vol)}</b><i>mL</i></span>
-              </div></div>`;
-          }).join('')}
-        </div>
-        <footer class="card__pie"><span><b>Diluir en:</b> SF</span><span><b>Tiempo:</b> Bolo rápido</span></footer>
-      </article>
-    </div>`;
-}
-
-/* ============================== FICHA ================================ */
-function vistaFicha(ctx) {
-  const fBolos = [];
-  BOLOS_MEDICAMENTOS.forEach(m => m.lineas.forEach((l, i) => {
-    const r = calcBolo(l, ctx);
-    fBolos.push(`<tr>
-      <td>${i === 0 ? esc(m.nombre) : ''}</td>
-      <td>${esc(l.etiqueta || '')}</td>
-      <td class="num destacado">${numDosis(r.dosis)} ${esc(l.unidad)}</td>
-      <td class="num vol">${numVol(r.vol)} mL</td>
-      <td>${i === 0 ? esc(m.diluir) : ''}</td>
-      <td>${i === 0 ? esc(m.tiempo) : ''}</td></tr>`);
-  }));
-
-  const fInf = INFUSIONES.filter(i => i.hoja === 'Medicamentos').map(inf => {
-    const r = calcInfusion(inf, ctx);
-    return `<tr><td>${esc(inf.nombre)}</td><td class="num">${numDosis(r.D)}</td>
-      <td>${esc(inf.unidad)}</td><td class="num vol">${numDosis(r.prep)} ${esc(inf.prepUnidad)}</td></tr>`;
   }).join('');
 
-  const hoy = new Date().toLocaleDateString('es-CL');
-  return `
-    <div class="ficha">
-      <div class="ficha__head">
-        <div>
-          <h2>Calculadora Medicamentos UCI</h2>
-          <p>Unidad de Neonatología · Hospital San Juan de Dios</p>
+  const alertas = (m.alertas || []).filter(a => a.cuando(ctx)).map(a =>
+    `<div class="alerta">${ICONO_AVISO}<div><b>Revisar la fórmula de la planilla</b>${esc(a.texto)}</div></div>`).join('');
+
+  return `<article class="ficha">
+    <header class="ficha__cab">
+      <div><div class="ficha__nombre">${esc(m.nombre)}</div>
+        <div class="ficha__conc">Sin restricción de volumen: ${esc(m.concSin || '—')}${
+          m.concCon ? ' · Con restricción: ' + esc(m.concCon) : ''}</div></div>
+      <span class="via">${esc(m.via)}</span>
+    </header>
+    <div class="ficha__cuerpo">
+      <div class="tabla-scroll">
+        <table class="tabla">
+          <thead><tr><th>Esquema</th><th>Dosis por Kg</th><th>Dosis a administrar</th>
+            <th>Intervalo</th><th>Administrar<br>sin restricción</th><th>Administrar<br>con restricción</th></tr></thead>
+          <tbody>${filas}</tbody>
+        </table>
+      </div>
+      ${m.nota ? `<p class="nota">${esc(m.nota)}</p>` : ''}
+      ${alertas}
+    </div>
+    <footer class="ficha__pie">
+      <span><b>Diluir en:</b> ${esc(m.diluir)}</span>
+      <span><b>Tiempo de infusión:</b> ${esc(m.tiempo)}</span>
+    </footer>
+  </article>`;
+}
+
+function fichaIG(ctx) {
+  const r = NeoCalc.ig(ctx, estado.igPresentacion, estado.igDosis);
+  const horas = ['0', '0,5', '1', 'aviso1', '2', '3', '4', '5', '6', 'aviso2'];
+  const avisos = {
+    aviso1: 'Si paciente tolera bien la primera hora, subir goteo según volumen de horas posteriores',
+    aviso2: 'En caso de que aparezcan reacciones adversas, disminuir la velocidad de infusión o suspender'
+  };
+  const filas = horas.map(h => avisos[h]
+    ? `<tr class="aviso"><td colspan="8">${esc(avisos[h])}</td></tr>`
+    : `<tr><td class="hora">${h}</td>${'<td class="libre"></td>'.repeat(7)}</tr>`).join('');
+
+  return `<article class="ficha">
+    <header class="ficha__cab">
+      <div><div class="ficha__nombre">Inmunoglobulina EV</div>
+        <div class="ficha__conc">Vía exclusiva (central o periférica)</div></div>
+      <span class="via">EV</span>
+    </header>
+    <div class="ficha__cuerpo">
+      <div class="ajuste">
+        <label for="igPres">Presentación</label>
+        <select id="igPres">
+          <option value="5000"${estado.igPresentacion === 5000 ? ' selected' : ''}>5.000 mg / 100 mL</option>
+          <option value="10000"${estado.igPresentacion === 10000 ? ' selected' : ''}>10.000 mg / 100 mL</option>
+        </select>
+        <label for="igDosis">Dosis</label>
+        <select id="igDosis">
+          ${[400, 500, 1000].map(v => `<option value="${v}"${estado.igDosis === v ? ' selected' : ''}>${v} mg/Kg</option>`).join('')}
+        </select>
+      </div>
+      <div class="linea">
+        <div><div class="linea__etq">Dosis a administrar</div>
+          <div class="linea__det">${estado.igDosis} mg/Kg${fx('Inmunoglobulina · dosis', [['Dosis', '=(B6*D12)/1000']])}</div></div>
+        <div class="valores"><span class="valor"><b>${numDosis(r.dosis)}</b><i>mg</i></span></div>
+      </div>
+      <div class="linea">
+        <div><div class="linea__etq">Volumen total</div>
+          <div class="linea__det">Según presentación${fx('Inmunoglobulina · volumen', [['Volumen total', '=(E12*100)/B12']])}</div></div>
+        <div class="valores"><span class="valor valor--vol"><b>${numVol(r.vol)}</b><i>mL</i></span></div>
+      </div>
+      <div class="linea">
+        <div><div class="linea__etq">Velocidad · primeros 60 min</div>
+          <div class="linea__det">${fx('Inmunoglobulina · velocidad inicial',
+            [['Primeros 60 min', '=SI(Y(B12=5000;O(D12=400;D12=500));0,015*B6*60/1000; … ;"ERROR")']])}</div></div>
+        <div class="valores"><span class="valor valor--vol"><b>${num(r.v1, 1)}</b><i>mL/h</i></span></div>
+      </div>
+      <div class="linea">
+        <div><div class="linea__etq">Velocidad · horas posteriores</div>
+          <div class="linea__det">${fx('Inmunoglobulina · velocidad posterior',
+            [['Horas posteriores', '=SI(Y(B12=5000;O(D12=400;D12=500));0,04*B6*60/1000; … ;"ERROR")']])}</div></div>
+        <div class="valores"><span class="valor valor--vol"><b>${num(r.v2, 1)}</b><i>mL/h</i></span></div>
+      </div>
+      <div class="linea">
+        <div><div class="linea__etq">Tiempo total estimado</div>
+          <div class="linea__det">Calculado por la app; la planilla deja esta casilla para completar a mano</div></div>
+        <div class="valores"><span class="valor"><b>${num(r.total, 1)}</b><i>h</i></span></div>
+      </div>
+
+      <p class="nota">Control de signos vitales durante la infusión</p>
+      <div class="tabla-scroll">
+        <table class="registro">
+          <thead><tr><th>Hora</th><th>PA</th><th>PAM</th><th>FC</th><th>FR</th><th>Sat. O₂</th><th>T°</th><th>Obs.</th></tr></thead>
+          <tbody>${filas}</tbody>
+        </table>
+      </div>
+      <div class="tabla-scroll">
+        <table class="registro" style="margin-top:.7rem">
+          <tbody>
+            <tr><td class="hora">Vía de administración (exclusiva)</td><td class="libre">central / periférica</td></tr>
+            <tr><td class="hora">Fecha de vencimiento</td><td class="libre"></td></tr>
+            <tr><td class="hora">Lote</td><td class="libre"></td></tr>
+            <tr><td class="hora">Observaciones</td><td class="libre"></td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="firmas"><div>Firma Médico Tratante</div><div>Firma Matrón/a encargado/a</div></div>
+    </div>
+  </article>`;
+}
+
+function fichaReanimacion(ctx) {
+  const r = NeoCalc.reanimacion(ctx);
+  const adr = BOLOS_MEDICAMENTOS.find(m => m.nombre === 'Adrenalina');
+  const lineasAdr = adr.lineas.map(l => {
+    const b = NeoCalc.bolo(l, ctx);
+    return `<div class="linea">
+      <div><div class="linea__etq">Adrenalina ${esc(l.etiqueta)}</div>
+        <div class="linea__det">${esc(l.dosisTxt)} · 0,1 mg/mL</div></div>
+      <div class="valores">
+        <span class="valor"><b>${numDosis(b.dosis)}</b><i>mg</i></span>
+        <span class="valor valor--vol"><b>${numVol(b.vol)}</b><i>mL</i></span>
+      </div></div>`;
+  }).join('');
+
+  return `<article class="ficha">
+    <header class="ficha__cab">
+      <div><div class="ficha__nombre">Reanimación</div>
+        <div class="ficha__conc">Según peso</div></div>
+    </header>
+    <div class="ficha__cuerpo">
+      <div class="linea">
+        <div><div class="linea__etq">N° TET (diámetro interno)</div>
+          <div class="linea__det">&gt; 2.000 g → 3,5 · 1.000–2.000 g → 3 · &lt; 1.000 g → 2,5${
+            fx('N° TET', [['Diámetro interno', '=SI(B6>2000;3,5;SI(B6<1000;2,5;3))']])}</div></div>
+        <div class="valores"><span class="valor"><b>${num(r.tet, 1)}</b><i>mm</i></span></div>
+      </div>
+      <div class="linea">
+        <div><div class="linea__etq">Distancia a la boca</div>
+          <div class="linea__det">Fijación al labio${fx('Distancia a la boca', [['Fijación al labio', '=(B6/1009)+6']])}</div></div>
+        <div class="valores"><span class="valor"><b>${num(r.dist, 1)}</b><i>cm</i></span></div>
+      </div>
+      <div class="linea">
+        <div><div class="linea__etq">Cardioversión sincronizada</div>
+          <div class="linea__det">1ª descarga 0,5 J/Kg · 2ª descarga 2 J/Kg${
+            fx('Cardioversión', [['1ª descarga', '=0,5*B6/1000'], ['2ª descarga', '=2*B6/1000']])}</div></div>
+        <div class="valores">
+          <span class="valor"><b>${num(r.car1, 1)}</b><i>J</i></span>
+          <span class="valor"><b>${num(r.car2, 1)}</b><i>J</i></span>
         </div>
-        <div class="ficha__datos">
-          <span>Fecha: <b>${esc(hoy)}</b></span>
-          <span>Cupo UCI: <b>${esc(estado.cupo || '—')}</b></span>
-        </div>
       </div>
-      <div class="ficha__datos" style="margin-bottom:.8rem">
-        <span>Paciente: <b>${esc(estado.nombre || '—')}</b></span>
-        <span>Peso: <b>${ctx.hayPeso ? num(ctx.g, 0) + ' g' : '—'}</b></span>
-        <span>EG corregida: <b>${ctx.hayEG ? ctx.egcSem + ' + ' + Math.round(ctx.egcD) + ' d' : '—'}</b></span>
-        <span>Edad: <b>${esNum(estado.edad) ? estado.edad + ' d' : '—'}</b></span>
+      ${lineasAdr}
+      <div class="alerta">${ICONO_AVISO}<div><b>Nota de la planilla</b>
+        La fórmula de la distancia a la boca divide el peso por 1.009 en vez de 1.000 (regla peso en Kg + 6);
+        la diferencia es menor a 0,03 cm.</div></div>
+    </div>
+  </article>`;
+}
+
+/* ====================================================================
+   PASOS
+   ==================================================================== */
+function pintarDerivados() {
+  const ctx = contexto();
+  const d = [];
+  if (hayPeso()) d.push(`<span class="dato dato--clave"><span>Peso</span><b>${num(ctx.kg, 3)} Kg</b></span>`);
+  if (esNum(estado.edad)) d.push(`<span class="dato"><span>Edad</span><b>${estado.edad} días</b></span>`);
+  if (esNum(estado.egSem)) {
+    d.push(`<span class="dato dato--clave"><span>EG corregida</span><b>${ctx.egcSem} + ${Math.round(ctx.egcD)} d</b></span>`);
+  }
+  if (hayPeso()) d.push(`<span class="dato"><span>Superficie corporal</span><b>${num(ctx.sc, 2)} m²</b></span>`);
+  $('#derivados').innerHTML = d.join('');
+}
+
+function pintarLista() {
+  const q = sinTildes($('#inBuscar').value.trim());
+  const coinciden = CATALOGO.filter(c => !q || c.busca.includes(q));
+
+  /* chips de lo ya seleccionado */
+  const cont = $('#seleccionados');
+  if (estado.sel.length) {
+    cont.hidden = false;
+    cont.innerHTML = estado.sel.map(id => {
+      const c = porId(id); if (!c) return '';
+      return `<button type="button" class="chip" data-quitar="${esc(id)}">${esc(c.chip)}${ICONO_X}</button>`;
+    }).join('') + `<button type="button" class="chip chip--vaciar" data-vaciar="1">Quitar todos</button>`;
+  } else {
+    cont.hidden = true; cont.innerHTML = '';
+  }
+
+  if (!coinciden.length) {
+    $('#lista').innerHTML = `<p class="vacio">Sin resultados para «${esc($('#inBuscar').value.trim())}».</p>`;
+    return;
+  }
+
+  const html = GRUPOS.map(g => {
+    const items = coinciden.filter(c => c.grupo === g);
+    if (!items.length) return '';
+    const todos = items.every(c => estado.sel.includes(c.id));
+    return `
+      <div class="lista__grupo">
+        <h3>${esc(g)}</h3>
+        <button type="button" class="boton boton--texto" data-grupo="${esc(g)}" data-marcar="${todos ? '0' : '1'}">
+          ${todos ? 'Quitar todos' : 'Seleccionar todos'}
+        </button>
       </div>
+      ${items.map(c => {
+        const marcada = estado.sel.includes(c.id);
+        return `<button type="button" class="opcion${marcada ? ' is-marcada' : ''}" data-id="${esc(c.id)}"
+                  aria-pressed="${marcada}">
+          <span class="opcion__caja">${ICONO_CHECK}</span>
+          <span class="opcion__txt">
+            <span class="opcion__nombre">${esc(c.nombre)}</span>
+            <span class="opcion__sub">${esc(c.sub || '')}</span>
+          </span>
+        </button>`;
+      }).join('')}`;
+  }).join('');
+  $('#lista').innerHTML = html;
+}
 
-      <h3 class="seccion__titulo">Bolos de medicamentos</h3>
-      <table class="tabla tabla--ficha">
-        <thead><tr><th>Medicamento</th><th></th><th>Dosis a administrar</th><th>Administrar</th>
-          <th>Diluir en</th><th>Tiempo de infusión</th></tr></thead>
-        <tbody>${fBolos.join('')}</tbody>
-      </table>
+function pintarResultados() {
+  const ctx = contexto();
+  const sel = CATALOGO.filter(c => estado.sel.includes(c.id));
 
-      <h3 class="seccion__titulo">Infusiones continuas</h3>
-      <table class="tabla tabla--ficha">
-        <thead><tr><th>Medicamento</th><th>Dosis en 1 cc</th><th>Unidad de medida</th><th>Preparación en 24 mL</th></tr></thead>
-        <tbody>${fInf}</tbody>
-      </table>
+  const datos = [];
+  datos.push(`<span><span>Peso</span> <b>${num(ctx.g, 0)} g</b></span>`);
+  if (esNum(estado.egSem)) datos.push(`<span><span>EG corregida</span> <b>${ctx.egcSem} + ${Math.round(ctx.egcD)} d</b></span>`);
+  if (esNum(estado.edad)) datos.push(`<span><span>Edad</span> <b>${estado.edad} d</b></span>`);
+  if (estado.nombre) datos.unshift(`<span><span>Paciente</span> <b>${esc(estado.nombre)}</b></span>`);
+  if (estado.cupo) datos.push(`<span><span>Cupo</span> <b>${esc(estado.cupo)}</b></span>`);
+  $('#resumen').innerHTML = `<div class="resumen__datos">${datos.join('')}</div>
+    <button type="button" class="boton boton--texto" id="btnEditarPaciente">Editar datos</button>`;
 
-      <p class="nota">La hoja «Versión Para Imprimir» de la planilla tomaba el volumen de la fenitoína de carga
-        desde la celda de la adrenalina ET (G13 en lugar de G14). Esta ficha usa el valor correcto de la hoja
-        «Medicamentos».</p>
+  const faltan = sel.some(c => c.tipo === 'anti') && (!esNum(estado.egSem) || !esNum(estado.edad));
+  const aviso = faltan
+    ? `<div class="alerta">${ICONO_AVISO}<div><b>Faltan datos</b>
+       Los antimicrobianos ajustan dosis e intervalo según la EG corregida y la edad cronológica.
+       Sin esos datos los valores mostrados no son confiables.</div></div>` : '';
 
-      <div class="firmas">
-        <div>Firma Médico Tratante</div>
-        <div>Firma Enfermera/Matrón/a</div>
-      </div>
+  const bloques = GRUPOS.map(g => {
+    const items = sel.filter(c => c.grupo === g);
+    if (!items.length) return '';
+    const fichas = items.map(c =>
+      c.tipo === 'bolo' ? fichaBolo(c, ctx) :
+      c.tipo === 'infusion' ? fichaInfusion(c, ctx) :
+      c.tipo === 'anti' ? fichaAnti(c, ctx) :
+      c.tipo === 'ig' ? fichaIG(ctx) : fichaReanimacion(ctx)).join('');
+    return `<h3 class="seccion">${esc(g)}</h3>${fichas}`;
+  }).join('');
+
+  $('#resultados').innerHTML = aviso + (bloques || `<p class="vacio">No hay fármacos seleccionados.</p>`) + `
+    <div class="acciones">
+      <button type="button" class="boton boton--contorno" id="btnEditarSeleccion">Añadir o quitar fármacos</button>
+      <button type="button" class="boton boton--texto" id="btnImprimir2">Imprimir</button>
+      <button type="button" class="boton boton--texto" id="btnNuevo">Nuevo paciente</button>
     </div>`;
 }
 
-/* ============================ BÚSQUEDA =============================== */
-function vistaBusqueda(ctx, q) {
-  const t = q.toLowerCase().trim();
-  const bloques = [];
-  const bol = BOLOS_MEDICAMENTOS.map(m => [m, 'Medicamentos'])
-    .concat(BOLOS_OTROS.map(m => [m, 'Otros medicamentos']))
-    .filter(p => p[0].nombre.toLowerCase().includes(t));
-  if (bol.length) bloques.push(`<h2 class="seccion__titulo">Bolos</h2>
-    <div class="grid">${bol.map(p => cardBolo(p[0], ctx, p[1])).join('')}</div>`);
-
-  const inf = INFUSIONES.filter(i => i.nombre.toLowerCase().includes(t));
-  if (inf.length) bloques.push(`<h2 class="seccion__titulo">Infusiones continuas</h2>
-    <div class="grid">${inf.map(i => cardInfusion(i, ctx)).join('')}</div>`);
-
-  const ant = ANTIMICROBIANOS.filter(m => m.nombre.toLowerCase().includes(t));
-  if (ant.length) bloques.push(`<h2 class="seccion__titulo">Antimicrobianos</h2>
-    <div class="grid grid--ancha">${ant.map(m => cardAnti(m, ctx)).join('')}</div>`);
-
-  if (t.length >= 3 && 'inmunoglobulina igiv inmunoglobulina ev'.includes(t)) bloques.push(vistaIG(ctx));
-  if (!bloques.length) return `<p class="vacio">Sin resultados para «${esc(q)}».</p>`;
-  return `<p class="seccion__intro">Resultados de la búsqueda «${esc(q)}» en todas las secciones.</p>` +
-         bloques.join('');
-}
-
-/* ============================= RENDER ================================ */
-function chips(ctx) {
-  const c = [];
-  c.push(`<span class="chip chip--destacado"><span>Peso</span><b>${ctx.hayPeso ? num(ctx.kg, 3) + ' Kg' : '—'}</b></span>`);
-  c.push(`<span class="chip"><span>Edad</span><b>${esNum(estado.edad) ? estado.edad + ' días' : '—'}</b></span>`);
-  c.push(`<span class="chip chip--destacado"><span>EG corregida</span><b>${
-    ctx.hayEG ? ctx.egcSem + ' sem + ' + Math.round(ctx.egcD) + ' d' : '—'}</b></span>`);
-  c.push(`<span class="chip"><span>EGC decimal</span><b>${ctx.hayEG ? num(ctx.egc, 2) : '—'}</b></span>`);
-  c.push(`<span class="chip"><span>SC (0,05·Kg+0,05)</span><b>${ctx.hayPeso ? num(ctx.sc, 2) + ' m²' : '—'}</b></span>`);
-  c.push(`<span class="chip"><span>SC ((4·Kg+7)/(90+Kg))</span><b>${ctx.hayPeso ? num(ctx.sc2, 2) + ' m²' : '—'}</b></span>`);
-  return c.join('');
+/* --------------------------------------------------------- navegación */
+function irA(paso) {
+  if (paso === 2 && !hayPeso()) return;
+  if (paso === 3 && !estado.sel.length) return;
+  estado.paso = paso; guardar(); render();
+  window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
 function render() {
-  const ctx = contexto();
-  $('#derivados').innerHTML = chips(ctx);
-  $('#resumenMini').innerHTML = ctx.hayPeso
-    ? `<b>${num(ctx.g, 0)} g</b>${ctx.hayEG ? ' · ' + ctx.egcSem + '+' + Math.round(ctx.egcD) : ''}` +
-      `${esNum(estado.edad) ? ' · ' + estado.edad + ' d' : ''}`
-    : '<span class="resumen--vacio">sin peso</span>';
-  $('#avisoPeso').hidden = ctx.hayPeso;
+  const p = estado.paso;
+  [1, 2, 3].forEach(n => { $('#vista-' + n).hidden = n !== p; });
+  $$('.paso-chip').forEach(ch => {
+    const n = Number(ch.dataset.paso);
+    ch.classList.toggle('is-activo', n === p);
+    ch.classList.toggle('is-hecho', n < p);
+    ch.disabled = (n === 2 && !hayPeso()) || (n === 3 && !estado.sel.length);
+  });
+  $('#btnImprimir').hidden = p !== 3;
 
-  const q = $('#inBuscar').value.trim();
-  const vistas = { bolos: vistaBolos, infusiones: vistaInfusiones, antimicrobianos: vistaAnti,
-                   inmunoglobulina: vistaIG, reanimacion: vistaReanimacion, ficha: vistaFicha };
-
-  $$('.vista').forEach(v => { v.hidden = true; });
-  if (q) {
-    const v = $('#vista-busqueda');
-    v.innerHTML = vistaBusqueda(ctx, q);
-    v.hidden = false;
+  if (p === 1) {
+    pintarDerivados();
+    $('#btnAtras').hidden = true;
+    $('#btnAvanzar').hidden = false;
+    $('#btnAvanzar').textContent = 'Continuar';
+    $('#btnAvanzar').disabled = !hayPeso();
+  } else if (p === 2) {
+    pintarLista();
+    $('#btnAtras').hidden = false;
+    $('#btnAvanzar').hidden = false;
+    $('#btnAvanzar').textContent = estado.sel.length ? `Ver dosis (${estado.sel.length})` : 'Ver dosis';
+    $('#btnAvanzar').disabled = !estado.sel.length;
   } else {
-    const v = $('#vista-' + estado.vista);
-    v.innerHTML = vistas[estado.vista](ctx);
-    v.hidden = false;
+    pintarResultados();
+    $('#btnAtras').hidden = false;
+    $('#btnAvanzar').hidden = true;
   }
-  $$('.tab').forEach(t => t.classList.toggle('is-active', !q && t.dataset.vista === estado.vista));
 }
 
-/* ============================= EVENTOS =============================== */
-function bindCampo(id, prop, tipo) {
-  const el = $(id);
+/* ------------------------------------------------------------ eventos */
+function campo(sel, prop, tipo) {
+  const el = $(sel);
   el.addEventListener('input', () => {
     const v = el.value;
     estado[prop] = tipo === 'num' ? (v === '' ? null : Number(v)) : v;
@@ -560,87 +506,124 @@ function bindCampo(id, prop, tipo) {
       const d = diasDesde(v);
       if (d != null && d >= 0) { estado.edad = d; $('#inEdad').value = d; }
     }
-    guardar(); render();
+    guardar();
+    if (estado.paso === 1) { pintarDerivados(); $('#btnAvanzar').disabled = !hayPeso();
+      $$('.paso-chip').forEach(ch => { if (Number(ch.dataset.paso) === 2) ch.disabled = !hayPeso(); }); }
   });
+}
+
+function alternar(id) {
+  const i = estado.sel.indexOf(id);
+  if (i >= 0) estado.sel.splice(i, 1); else estado.sel.push(id);
+  guardar();
 }
 
 function init() {
   restaurar();
   if (estado.tema) document.documentElement.dataset.tema = estado.tema;
-  else delete document.documentElement.dataset.tema;
 
-  $('#inNombre').value = estado.nombre || '';
-  $('#inDiagnostico').value = estado.diagnostico || '';
-  $('#inCupo').value = estado.cupo || '';
   $('#inPeso').value = estado.peso ?? '';
-  $('#inTalla').value = estado.talla ?? '';
-  $('#inFN').value = estado.fn || '';
-  $('#inEdad').value = estado.edad ?? '';
   $('#inEGsem').value = estado.egSem ?? '';
   $('#inEGdia').value = estado.egDia ?? '';
+  $('#inEdad').value = estado.edad ?? '';
+  $('#inFN').value = estado.fn || '';
+  $('#inNombre').value = estado.nombre || '';
+  $('#inCupo').value = estado.cupo || '';
+  $('#inDiagnostico').value = estado.diagnostico || '';
 
-  bindCampo('#inNombre', 'nombre'); bindCampo('#inDiagnostico', 'diagnostico');
-  bindCampo('#inCupo', 'cupo'); bindCampo('#inPeso', 'peso', 'num');
-  bindCampo('#inTalla', 'talla', 'num'); bindCampo('#inFN', 'fn');
-  bindCampo('#inEdad', 'edad', 'num'); bindCampo('#inEGsem', 'egSem', 'num');
-  bindCampo('#inEGdia', 'egDia', 'num');
+  campo('#inPeso', 'peso', 'num'); campo('#inEGsem', 'egSem', 'num');
+  campo('#inEGdia', 'egDia', 'num'); campo('#inEdad', 'edad', 'num');
+  campo('#inFN', 'fn'); campo('#inNombre', 'nombre');
+  campo('#inCupo', 'cupo'); campo('#inDiagnostico', 'diagnostico');
 
-  const hoy = new Date().toLocaleDateString('es-CL', { day: '2-digit', month: 'long', year: 'numeric' });
-  $('#fechaHoy').textContent = hoy;
-  $('#pieFecha').textContent = hoy;
+  $('#pasos').addEventListener('click', ev => {
+    const b = ev.target.closest('.paso-chip');
+    if (b && !b.disabled) irA(Number(b.dataset.paso));
+  });
+  $('#btnAvanzar').addEventListener('click', () => irA(estado.paso + 1));
+  $('#btnAtras').addEventListener('click', () => irA(estado.paso - 1));
 
-  $('#tabs').addEventListener('click', ev => {
-    const t = ev.target.closest('.tab'); if (!t) return;
-    estado.vista = t.dataset.vista; $('#inBuscar').value = '';
-    guardar(); render();
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+  /* buscador */
+  let t;
+  $('#inBuscar').addEventListener('input', () => {
+    $('#btnBorrarBusqueda').hidden = !$('#inBuscar').value;
+    clearTimeout(t); t = setTimeout(pintarLista, 90);
+  });
+  $('#btnBorrarBusqueda').addEventListener('click', () => {
+    $('#inBuscar').value = ''; $('#btnBorrarBusqueda').hidden = true; pintarLista(); $('#inBuscar').focus();
   });
 
-  let tBuscar;
-  $('#inBuscar').addEventListener('input', () => { clearTimeout(tBuscar); tBuscar = setTimeout(render, 120); });
-
-  document.addEventListener('input', ev => {
-    const inf = ev.target.dataset && ev.target.dataset.infusion;
-    if (inf) {
-      const v = ev.target.value === '' ? null : Number(ev.target.value);
-      if (v === null) delete estado.infusiones[inf]; else estado.infusiones[inf] = v;
-      guardar();
-      const foco = ev.target.id;
-      render();
-      const nuevo = document.getElementById(foco);
-      if (nuevo) { nuevo.focus(); try { nuevo.setSelectionRange(nuevo.value.length, nuevo.value.length); } catch (e) {} }
+  /* selección */
+  $('#vista-2').addEventListener('click', ev => {
+    const op = ev.target.closest('.opcion');
+    if (op) { alternar(op.dataset.id); pintarLista(); actualizarAvanzar(); return; }
+    const quitar = ev.target.closest('[data-quitar]');
+    if (quitar) { alternar(quitar.dataset.quitar); pintarLista(); actualizarAvanzar(); return; }
+    if (ev.target.closest('[data-vaciar]')) { estado.sel = []; guardar(); pintarLista(); actualizarAvanzar(); return; }
+    const grupo = ev.target.closest('[data-grupo]');
+    if (grupo) {
+      const q = sinTildes($('#inBuscar').value.trim());
+      const items = CATALOGO.filter(c => c.grupo === grupo.dataset.grupo && (!q || c.busca.includes(q)));
+      if (grupo.dataset.marcar === '1') items.forEach(c => { if (!estado.sel.includes(c.id)) estado.sel.push(c.id); });
+      else estado.sel = estado.sel.filter(id => !items.some(c => c.id === id));
+      guardar(); pintarLista(); actualizarAvanzar();
     }
   });
 
-  document.addEventListener('change', ev => {
-    if (ev.target.id === 'igPres') { estado.igPresentacion = Number(ev.target.value); guardar(); render(); }
-    if (ev.target.id === 'igDosis') { estado.igDosis = Number(ev.target.value); guardar(); render(); }
+  function actualizarAvanzar() {
+    $('#btnAvanzar').textContent = estado.sel.length ? `Ver dosis (${estado.sel.length})` : 'Ver dosis';
+    $('#btnAvanzar').disabled = !estado.sel.length;
+    $$('.paso-chip').forEach(ch => { if (Number(ch.dataset.paso) === 3) ch.disabled = !estado.sel.length; });
+  }
+
+  /* resultados: acciones y ajustes */
+  $('#vista-3').addEventListener('click', ev => {
+    if (ev.target.closest('#btnEditarPaciente')) irA(1);
+    else if (ev.target.closest('#btnEditarSeleccion')) irA(2);
+    else if (ev.target.closest('#btnImprimir2')) window.print();
+    else if (ev.target.closest('#btnNuevo')) nuevoPaciente();
+  });
+  $('#vista-3').addEventListener('input', ev => {
+    const clave = ev.target.dataset && ev.target.dataset.infusion;
+    if (!clave) return;
+    const v = ev.target.value === '' ? null : Number(ev.target.value);
+    if (v === null) delete estado.infusiones[clave]; else estado.infusiones[clave] = v;
+    guardar();
+    const foco = ev.target.id;
+    pintarResultados();
+    const nuevo = document.getElementById(foco);
+    if (nuevo) { nuevo.focus(); try { nuevo.setSelectionRange(nuevo.value.length, nuevo.value.length); } catch (e) {} }
+  });
+  $('#vista-3').addEventListener('change', ev => {
+    if (ev.target.id === 'igPres') { estado.igPresentacion = Number(ev.target.value); guardar(); pintarResultados(); }
+    if (ev.target.id === 'igDosis') { estado.igDosis = Number(ev.target.value); guardar(); pintarResultados(); }
   });
 
+  function nuevoPaciente() {
+    if (!confirm('¿Empezar con un paciente nuevo? Se borrarán los datos y la selección actual.')) return;
+    Object.assign(estado, { paso: 1, peso: null, egSem: null, egDia: null, edad: null, fn: '',
+      nombre: '', cupo: '', diagnostico: '', sel: [], infusiones: {} });
+    ['#inPeso', '#inEGsem', '#inEGdia', '#inEdad', '#inFN', '#inNombre', '#inCupo', '#inDiagnostico']
+      .forEach(s => { $(s).value = ''; });
+    $('#inBuscar').value = '';
+    guardar(); render(); $('#inPeso').focus();
+  }
+
+  /* diálogo de fórmulas */
   document.addEventListener('click', ev => {
     const b = ev.target.closest('[data-formula]');
-    if (b) {
-      const f = FORMULAS[b.dataset.formula];
-      $('#modalTitulo').textContent = f.titulo;
-      $('#modalCuerpo').innerHTML = f.lineas.map(l =>
-        `<div class="formula__etq">${esc(l[0])}</div><div class="formula">${esc(l[1])}</div>`).join('') +
-        `<p class="nota">Referencias de celdas de la planilla original: B6 = peso (g), D5 = edad (días),
-         F5 = EG (semanas), I5 = EG corregida decimal, K5 = días de la EG corregida.</p>`;
-      $('#modal').hidden = false;
-    }
+    if (!b) return;
+    const f = FORMULAS[b.dataset.formula];
+    $('#modalTitulo').textContent = f.titulo;
+    $('#modalCuerpo').innerHTML = f.lineas.map(l =>
+      `<div class="formula__etq">${esc(l[0])}</div><div class="formula">${esc(l[1])}</div>`).join('') +
+      `<p class="nota">Celdas de la planilla: B6 = peso (g) · D5 = edad (días) · F5 = EG (semanas) ·
+       I5 = EG corregida decimal · K5 = días de la EG corregida.</p>`;
+    $('#modal').hidden = false;
   });
   $('#modalCerrar').addEventListener('click', () => { $('#modal').hidden = true; });
   $('#modal').addEventListener('click', ev => { if (ev.target.id === 'modal') $('#modal').hidden = true; });
   document.addEventListener('keydown', ev => { if (ev.key === 'Escape') $('#modal').hidden = true; });
-
-  const aplicarColapso = () => {
-    $('#paciente').classList.toggle('is-colapsado', !!estado.datosColapsados);
-    $('#btnDatos').setAttribute('aria-expanded', String(!estado.datosColapsados));
-  };
-  aplicarColapso();
-  $('#btnDatos').addEventListener('click', () => {
-    estado.datosColapsados = !estado.datosColapsados; guardar(); aplicarColapso();
-  });
 
   $('#btnImprimir').addEventListener('click', () => window.print());
   $('#btnTema').addEventListener('click', () => {
@@ -648,22 +631,17 @@ function init() {
     let oscuro = raiz.dataset.tema === 'oscuro';
     if (!raiz.dataset.tema) {
       oscuro = raiz.dataset.theme === 'dark' ||
-        (raiz.dataset.theme !== 'light' &&
-         window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches);
+        (raiz.dataset.theme !== 'light' && window.matchMedia &&
+         window.matchMedia('(prefers-color-scheme: dark)').matches);
     }
     estado.tema = oscuro ? 'claro' : 'oscuro';
     raiz.dataset.tema = estado.tema; guardar();
   });
-  $('#btnLimpiar').addEventListener('click', () => {
-    if (!confirm('¿Borrar los datos del paciente y volver a los valores por defecto?')) return;
-    Object.assign(estado, { nombre: '', diagnostico: '', cupo: '', peso: null, talla: null,
-      fn: '', edad: null, egSem: null, egDia: 0, infusiones: {} });
-    ['#inNombre', '#inDiagnostico', '#inCupo', '#inPeso', '#inTalla', '#inFN', '#inEdad', '#inEGsem', '#inEGdia']
-      .forEach(s => { $(s).value = ''; });
-    guardar(); render(); $('#inPeso').focus();
-  });
 
+  if (estado.paso === 3 && !estado.sel.length) estado.paso = 1;
+  if (estado.paso >= 2 && !hayPeso()) estado.paso = 1;
   render();
+  if (estado.paso === 1) $('#inPeso').focus();
 
   if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
     navigator.serviceWorker.register('sw.js').catch(() => {});

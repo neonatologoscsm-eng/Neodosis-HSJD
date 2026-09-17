@@ -13,23 +13,21 @@ calcula al instante dosis, volúmenes, intervalos y preparaciones.
 
 ## Cómo se usa
 
-1. Abrir `index.html` en cualquier navegador (no necesita servidor, internet ni
-   instalación).
-2. Ingresar los datos del paciente en la barra superior:
-   - **Peso (g)** — es el único dato imprescindible para los bolos e infusiones.
-   - **Edad gestacional (semanas + días)** y **edad cronológica (días)** — necesarias
-     para los antimicrobianos, que ajustan dosis e intervalo según la EG corregida.
-   - La **fecha de nacimiento** calcula automáticamente la edad en días; también
-     puede escribirse la edad directamente.
-3. Navegar por las secciones: **Bolos · Infusiones continuas · Antimicrobianos ·
-   Inmunoglobulina · Reanimación · Ficha imprimible**, o escribir el nombre del
-   fármaco en el buscador.
-4. **Imprimir** genera la hoja del paciente con la sección que esté en pantalla;
-   la pestaña *Ficha imprimible* reproduce la hoja «Versión Para Imprimir» de la
-   planilla.
+La app trabaja en tres pasos:
 
-Los datos del paciente quedan guardados en el navegador (`localStorage`) hasta
-que se presiona **Limpiar**; nunca salen del dispositivo.
+1. **Paciente** — se ingresa el **peso (g)**, la **edad gestacional al nacer** (semanas + días) y la
+   **edad cronológica** (días de vida o fecha de nacimiento). El peso es lo único obligatorio; la EG y
+   la edad se usan para ajustar los antimicrobianos. Bajo «Datos para la ficha impresa» pueden
+   agregarse nombre, cupo y diagnóstico.
+2. **Fármacos** — se escribe parte del nombre para filtrar y se marcan todos los que se quiera
+   consultar. Los seleccionados quedan como chips arriba y cada grupo tiene «Seleccionar todos»
+   (con eso se obtiene el contenido completo de la planilla).
+3. **Dosis** — la app muestra únicamente los fármacos pedidos, con sus dosis, volúmenes,
+   intervalos y preparaciones, más el botón **Imprimir** para dejar la hoja en la ficha.
+
+Se abre con `index.html` en cualquier navegador: no necesita servidor, internet ni instalación.
+Los datos quedan guardados en el navegador (`localStorage`) hasta que se presiona
+**Nuevo paciente**; nunca salen del dispositivo.
 
 ### Uso sin conexión / como app del teléfono
 
@@ -43,18 +41,16 @@ python3 -m http.server 8080
 # luego abrir http://localhost:8080
 ```
 
----
-
 ## Qué contiene (equivalencia con la planilla)
 
-| Hoja original | Sección de la app | Contenido |
+| Hoja original | Dónde está en la app | Contenido |
 |---|---|---|
-| `Medicamentos` | **Bolos** + **Infusiones continuas** | 15 bolos (19 esquemas: carga/mantención, EV/ET) y 13 infusiones continuas |
-| `Otros medicamentos` | **Bolos** + **Infusiones continuas** | 6 bolos (albúmina, amiodarona, atropina, gluconato de calcio, sulfato de magnesio, verapamilo) y 5 infusiones (amiodarona, ketamina, furosemida, isoproterenol, vasopresina) |
-| `Antimicrobianos` | **Antimicrobianos** | 22 antibióticos, 7 antivirales y 4 antifúngicos, con esquemas de bacteriemia/meningitis, profilaxis/tratamiento y carga/mantención, volúmenes con y sin restricción de volumen |
-| `Inmunoglobulina` | **Inmunoglobulina** | Dosis, volumen, velocidades de infusión, hoja de control de signos vitales y datos de lote/firma |
-| `Reanimación` | **Reanimación** | N° de TET, distancia a la boca, cardioversión y adrenalina |
-| `Versión Para Imprimir` | **Ficha imprimible** | Hoja resumen para la ficha del paciente |
+| `Medicamentos` | Grupos **Bolos** e **Infusiones continuas** | 15 bolos (19 esquemas: carga/mantención, EV/ET) y 13 infusiones continuas |
+| `Otros medicamentos` | Grupos **Bolos** e **Infusiones continuas** | 6 bolos (albúmina, amiodarona, atropina, gluconato de calcio, sulfato de magnesio, verapamilo) y 5 infusiones (amiodarona, ketamina, furosemida, isoproterenol, vasopresina) |
+| `Antimicrobianos` | Grupos **Antibióticos**, **Antivirales** y **Antifúngicos** | 22 antibióticos, 7 antivirales y 4 antifúngicos, con esquemas de bacteriemia/meningitis, profilaxis/tratamiento y carga/mantención, y volúmenes con y sin restricción de volumen |
+| `Inmunoglobulina` | **Otros cálculos → Inmunoglobulina EV** | Dosis, volumen, velocidades de infusión, hoja de control de signos vitales y datos de lote/firma |
+| `Reanimación` | **Otros cálculos → Reanimación** | N° de TET, distancia a la boca, cardioversión y adrenalina |
+| `Versión Para Imprimir` | Botón **Imprimir** del paso 3 | Hoja del paciente con los fármacos consultados |
 
 Cada valor calculado tiene un botón **ƒx** que muestra la fórmula original de la
 planilla (con sus referencias de celda) para poder auditarlo.
@@ -113,7 +109,7 @@ corregir el documento original.
 | **Zidovudina VO** | Usa `D5<30` y `D5>30`: con EGC < 30 semanas y exactamente 30 días de vida no hay resultado (0 mg) | Muestra «sin resultado» + alerta (la dosis EV equivalente sería 2,3 mg/Kg) |
 | **Distancia a la boca** (Reanimación) | `=(B6/1009)+6` divide por 1.009 en vez de 1.000 (regla «peso en Kg + 6») | Reproduce la fórmula + nota; la diferencia es < 0,03 cm |
 | **Gentamicina** (intervalo) | Una condición usa `D5<=34` (edad) donde parece corresponder `I5<=34` (EGC); el resultado coincide con el valor por defecto (24 h), así que no cambia ninguna dosis | Reproduce la fórmula |
-| **Fenitoína en «Versión Para Imprimir»** | La hoja de impresión toma el volumen de la carga desde `G13` (adrenalina ET) en lugar de `G14` | La ficha usa el valor correcto de la hoja «Medicamentos» y lo advierte al pie |
+| **Fenitoína en «Versión Para Imprimir»** | La hoja de impresión toma el volumen de la carga desde `G13` (adrenalina ET) en lugar de `G14` | La impresión usa el valor correcto de la hoja «Medicamentos» |
 | **Peso en «Otros medicamentos»** | Esa hoja tiene su propia celda de peso, independiente del resto del libro (quedó en 800 g) | La app usa un **único peso** para todas las secciones |
 | **Superficie corporal** | La hoja «Medicamentos» usa `0,05·Kg + 0,05` y «Otros medicamentos» usa `(4·Kg + 7)/(90 + Kg)` | Se muestran ambas, identificadas por su fórmula |
 
@@ -126,12 +122,12 @@ inmunoglobulina, que en la planilla es una casilla vacía para completar a mano.
 ## Estructura del proyecto
 
 ```
-index.html                  Interfaz y estructura de la página
-css/styles.css              Estilos (tema claro/oscuro, impresión, móvil)
+index.html                  Estructura de los tres pasos
+css/styles.css              Estilos Material Design (claro/oscuro, impresión, móvil)
 js/calculo.js               Núcleo de cálculo: las fórmulas de la planilla
 js/data.js                  Bolos e infusiones continuas
 js/antimicrobianos.js       Antibióticos, antivirales y antifúngicos
-js/app.js                   Interfaz, estado del paciente y render
+js/app.js                   Flujo de pasos, catálogo buscable, estado y render
 sw.js, manifest.webmanifest Uso sin conexión / instalación como app
 assets/                     Logotipo de la unidad
 verificacion/               Intérprete de Excel y prueba de fidelidad
