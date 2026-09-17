@@ -1,0 +1,15 @@
+{
+  "name": "NeoDosis HSJD · Medicamentos de alto riesgo",
+  "short_name": "NeoDosis",
+  "description": "Calculadora de dosis, infusiones y antimicrobianos de la Unidad de Neonatología del Hospital San Juan de Dios.",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#f1f5f9",
+  "theme_color": "#1d7fb8",
+  "lang": "es-CL",
+  "icons": [
+    { "src": "assets/logo-neonatologia-hsjd.jpg", "sizes": "225x225", "type": "image/jpeg", "purpose": "any" }
+  ]
+}

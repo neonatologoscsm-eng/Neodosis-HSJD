@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>NeoDosis HSJD · Cálculo de medicamentos de alto riesgo</title>
+<meta name="description" content="Calculadora de dosis, bolos, infusiones continuas y antimicrobianos de la Unidad de Neonatología del Hospital San Juan de Dios.">
+<meta name="theme-color" content="#0f766e">
+<link rel="icon" href="assets/logo-neonatologia-hsjd.jpg">
+<link rel="apple-touch-icon" href="assets/logo-neonatologia-hsjd.jpg">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+
+<a class="skip-link" href="#contenido">Ir al contenido</a>
+
+<header class="topbar">
+  <div class="topbar__brand">
+    <img src="assets/logo-neonatologia-hsjd.jpg" alt="Neonatología · Hospital San Juan de Dios" class="topbar__logo">
+    <div class="topbar__titles">
+      <h1>NeoDosis <span>HSJD</span></h1>
+      <p>Cálculo de medicamentos de alto riesgo · Unidad de Neonatología</p>
+    </div>
+  </div>
+  <div class="topbar__actions">
+    <span class="topbar__date" id="fechaHoy"></span>
+    <button type="button" class="btn btn--ghost" id="btnDatos" aria-expanded="true" aria-controls="paciente">Datos</button>
+    <button type="button" class="btn btn--ghost" id="btnTema" title="Cambiar tema" aria-label="Cambiar tema">◐</button>
+    <button type="button" class="btn btn--ghost" id="btnLimpiar">Limpiar</button>
+    <button type="button" class="btn btn--primary" id="btnImprimir">Imprimir</button>
+  </div>
+</header>
+
+<!-- ============================ PACIENTE ============================ -->
+<section class="paciente" id="paciente" aria-label="Datos del paciente">
+  <div class="paciente__grid">
+    <div class="campo campo--ancho">
+      <label for="inNombre">Nombre paciente</label>
+      <input type="text" id="inNombre" autocomplete="off" placeholder="Apellido, nombre">
+    </div>
+    <div class="campo campo--ancho">
+      <label for="inDiagnostico">Diagnóstico</label>
+      <input type="text" id="inDiagnostico" autocomplete="off" placeholder="Diagnóstico principal">
+    </div>
+    <div class="campo">
+      <label for="inCupo">Cupo UCI</label>
+      <input type="text" id="inCupo" autocomplete="off" placeholder="Nº">
+    </div>
+
+    <div class="campo campo--peso">
+      <label for="inPeso">Peso <span class="u">(g)</span></label>
+      <input type="number" id="inPeso" inputmode="numeric" min="200" max="8000" step="1" placeholder="0">
+    </div>
+    <div class="campo">
+      <label for="inTalla">Talla <span class="u">(cm)</span></label>
+      <input type="number" id="inTalla" inputmode="decimal" min="20" max="70" step="0.5" placeholder="0">
+    </div>
+    <div class="campo">
+      <label for="inFN">Fecha de nacimiento</label>
+      <input type="date" id="inFN">
+    </div>
+    <div class="campo">
+      <label for="inEdad">Edad cronológica <span class="u">(días)</span></label>
+      <input type="number" id="inEdad" inputmode="numeric" min="0" max="400" step="1" placeholder="0">
+    </div>
+    <div class="campo campo--eg">
+      <label for="inEGsem">Edad gestacional <span class="u">(sem + días)</span></label>
+      <div class="campo__par">
+        <input type="number" id="inEGsem" inputmode="numeric" min="20" max="45" step="1" placeholder="sem">
+        <span>+</span>
+        <input type="number" id="inEGdia" inputmode="numeric" min="0" max="6" step="1" placeholder="d">
+      </div>
+    </div>
+  </div>
+
+  <div class="derivados" id="derivados"></div>
+  <p class="paciente__aviso" id="avisoPeso" hidden>Ingrese el <strong>peso</strong> para calcular las dosis.</p>
+</section>
+
+<!-- ============================= NAVEGACIÓN ========================= -->
+<nav class="tabs" id="tabs" aria-label="Secciones">
+  <button class="tab is-active" data-vista="bolos">Bolos</button>
+  <button class="tab" data-vista="infusiones">Infusiones continuas</button>
+  <button class="tab" data-vista="antimicrobianos">Antimicrobianos</button>
+  <button class="tab" data-vista="inmunoglobulina">Inmunoglobulina</button>
+  <button class="tab" data-vista="reanimacion">Reanimación</button>
+  <button class="tab" data-vista="ficha">Ficha imprimible</button>
+  <span class="resumen" id="resumenMini"></span>
+  <div class="buscador">
+    <input type="search" id="inBuscar" placeholder="Buscar fármaco…" aria-label="Buscar fármaco" autocomplete="off">
+  </div>
+</nav>
+
+<main id="contenido">
+  <section class="vista" id="vista-busqueda" hidden></section>
+  <section class="vista" id="vista-bolos"></section>
+  <section class="vista" id="vista-infusiones" hidden></section>
+  <section class="vista" id="vista-antimicrobianos" hidden></section>
+  <section class="vista" id="vista-inmunoglobulina" hidden></section>
+  <section class="vista" id="vista-reanimacion" hidden></section>
+  <section class="vista" id="vista-ficha" hidden></section>
+</main>
+
+<footer class="pie">
+  <p><strong>Uso exclusivo del equipo clínico.</strong> Réplica fiel de la planilla institucional
+     «Cálculo de medicamentos de alto riesgo» (versión atropina, vasopresina e isoproterenol).
+     Toda dosis debe ser verificada por el médico tratante y por enfermería/matronería antes de administrarse.</p>
+  <p class="pie__meta">Unidad de Neonatología · Hospital San Juan de Dios · <span id="pieFecha"></span></p>
+</footer>
+
+<div class="modal" id="modal" hidden>
+  <div class="modal__caja" role="dialog" aria-modal="true" aria-labelledby="modalTitulo">
+    <header><h3 id="modalTitulo">Fórmula original</h3>
+      <button type="button" class="btn btn--ghost" id="modalCerrar" aria-label="Cerrar">✕</button></header>
+    <div id="modalCuerpo"></div>
+  </div>
+</div>
+
+<script src="js/calculo.js"></script>
+<script src="js/data.js"></script>
+<script src="js/antimicrobianos.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>
