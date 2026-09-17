@@ -3,7 +3,16 @@ name: Compilar APK de prueba
 on:
   workflow_dispatch:
   push:
-    tags: ['v*']
+    branches: [claude/upbeat-heisenberg-2uqyzs]
+    paths:
+      - 'index.html'
+      - 'css/**'
+      - 'js/**'
+      - 'assets/**'
+      - 'manifest.webmanifest'
+      - 'sw.js'
+      - 'packaging/**'
+      - '.github/workflows/apk.yml'
 
 permissions:
   contents: write
