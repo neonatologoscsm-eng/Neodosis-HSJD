@@ -3,6 +3,14 @@ name: Publicar sitio (GitHub Pages)
 on:
   push:
     branches: [main, claude/upbeat-heisenberg-2uqyzs]
+    paths:
+      - 'index.html'
+      - 'css/**'
+      - 'js/**'
+      - 'assets/**'
+      - 'manifest.webmanifest'
+      - 'sw.js'
+      - '.github/workflows/pages.yml'
   workflow_dispatch:
 
 permissions:

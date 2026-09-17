@@ -128,6 +128,24 @@ Dos vías, ambas automáticas desde GitHub Actions:
 | **Enlace web (PWA)** | `.github/workflows/pages.yml` publica el sitio en GitHub Pages en cada push. Se instala en el teléfono desde el navegador («Añadir a pantalla de inicio») y funciona sin conexión | Todo el equipo, en Android, iPhone o computador |
 | **APK de Android** | `.github/workflows/apk.yml` empaqueta la app con Capacitor y publica el archivo en el prelanzamiento `apk-prueba` de *Releases*. Ejecutar desde la pestaña **Actions → Compilar APK de prueba → Run workflow** | Quien prefiera una app instalada |
 
+### Activar el enlace (una sola vez)
+
+GitHub Pages no se puede habilitar desde el flujo de trabajo en un repositorio
+personal, así que la primera vez hay que encenderlo a mano:
+
+1. En el repositorio: **Settings → Pages**.
+2. En *Build and deployment → Source*, elegir **GitHub Actions**.
+3. En **Actions → Publicar sitio (GitHub Pages)**, usar *Re-run jobs* en la última
+   ejecución (o subir cualquier cambio).
+
+El sitio queda en `https://neonatologoscsm-eng.github.io/Neodosis-HSJD/`.
+
+El entorno `github-pages` acepta por omisión sólo la rama principal: si el sitio se
+publica desde una rama de trabajo, hay que fusionarla a `main` o añadir esa rama en
+**Settings → Environments → github-pages → Deployment branches**.
+
+### Sobre la firma del APK
+
 El APK se firma con la clave de depuración de Android: sirve para probar, no para
 publicar en Google Play. Para la versión definitiva hay que crear una clave propia
 y firmar un `assembleRelease` o un Android App Bundle (ver `packaging/README.md`).
