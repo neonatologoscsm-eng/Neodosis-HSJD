@@ -43,7 +43,7 @@ const estado = {
   peso: null, talla: null, fn: '', edad: null, egSem: null, egDia: 0,
   infusiones: {},           // dosis en 1 cc modificadas por el usuario
   igPresentacion: 10000, igDosis: 400, datosColapsados: false,
-  tema: 'claro', vista: 'bolos'
+  tema: '', vista: 'bolos'   // tema '' = sigue la preferencia del sistema
 };
 
 function guardar() {
@@ -566,7 +566,8 @@ function bindCampo(id, prop, tipo) {
 
 function init() {
   restaurar();
-  document.documentElement.dataset.tema = estado.tema || 'claro';
+  if (estado.tema) document.documentElement.dataset.tema = estado.tema;
+  else delete document.documentElement.dataset.tema;
 
   $('#inNombre').value = estado.nombre || '';
   $('#inDiagnostico').value = estado.diagnostico || '';
@@ -643,8 +644,15 @@ function init() {
 
   $('#btnImprimir').addEventListener('click', () => window.print());
   $('#btnTema').addEventListener('click', () => {
-    estado.tema = (document.documentElement.dataset.tema === 'oscuro') ? 'claro' : 'oscuro';
-    document.documentElement.dataset.tema = estado.tema; guardar();
+    const raiz = document.documentElement;
+    let oscuro = raiz.dataset.tema === 'oscuro';
+    if (!raiz.dataset.tema) {
+      oscuro = raiz.dataset.theme === 'dark' ||
+        (raiz.dataset.theme !== 'light' &&
+         window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches);
+    }
+    estado.tema = oscuro ? 'claro' : 'oscuro';
+    raiz.dataset.tema = estado.tema; guardar();
   });
   $('#btnLimpiar').addEventListener('click', () => {
     if (!confirm('¿Borrar los datos del paciente y volver a los valores por defecto?')) return;
