@@ -2,10 +2,11 @@
   "name": "neodosis-hsjd",
   "version": "1.0.0",
   "private": true,
-  "description": "Empaquetado Android (Capacitor) de NeoDosis HSJD",
+  "description": "Empaquetado móvil (Capacitor) de NeoDosis HSJD",
   "dependencies": {
     "@capacitor/android": "^7.0.0",
-    "@capacitor/core": "^7.0.0"
+    "@capacitor/core": "^7.0.0",
+    "@capacitor/ios": "^7.0.0"
   },
   "devDependencies": {
     "@capacitor/assets": "^3.0.5",

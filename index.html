@@ -6,8 +6,25 @@
 <title>NeoDosis HSJD</title>
 <meta name="description" content="Calculadora de dosis, infusiones y antimicrobianos de la Unidad de Neonatología del Hospital San Juan de Dios.">
 <meta name="theme-color" content="#00658f">
+<meta name="theme-color" media="(prefers-color-scheme: dark)" content="#0f1416">
+<meta name="format-detection" content="telephone=no">
+
+<!-- Instalación en iPhone / iPad: app a pantalla completa desde «Añadir a pantalla de inicio» -->
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="NeoDosis">
 <link rel="icon" href="assets/icono-192.png">
-<link rel="apple-touch-icon" href="assets/icono-192.png">
+<link rel="apple-touch-icon" sizes="180x180" href="assets/icono-ios-180.png">
+<link rel="apple-touch-startup-image" media="(device-width:430px) and (device-height:932px) and (-webkit-device-pixel-ratio:3) and (orientation:portrait)" href="assets/inicio-1290x2796.png">
+<link rel="apple-touch-startup-image" media="(device-width:428px) and (device-height:926px) and (-webkit-device-pixel-ratio:3) and (orientation:portrait)" href="assets/inicio-1284x2778.png">
+<link rel="apple-touch-startup-image" media="(device-width:393px) and (device-height:852px) and (-webkit-device-pixel-ratio:3) and (orientation:portrait)" href="assets/inicio-1179x2556.png">
+<link rel="apple-touch-startup-image" media="(device-width:390px) and (device-height:844px) and (-webkit-device-pixel-ratio:3) and (orientation:portrait)" href="assets/inicio-1170x2532.png">
+<link rel="apple-touch-startup-image" media="(device-width:375px) and (device-height:812px) and (-webkit-device-pixel-ratio:3) and (orientation:portrait)" href="assets/inicio-1125x2436.png">
+<link rel="apple-touch-startup-image" media="(device-width:360px) and (device-height:780px) and (-webkit-device-pixel-ratio:3) and (orientation:portrait)" href="assets/inicio-1080x2340.png">
+<link rel="apple-touch-startup-image" media="(device-width:414px) and (device-height:896px) and (-webkit-device-pixel-ratio:2) and (orientation:portrait)" href="assets/inicio-828x1792.png">
+<link rel="apple-touch-startup-image" media="(device-width:375px) and (device-height:667px) and (-webkit-device-pixel-ratio:2) and (orientation:portrait)" href="assets/inicio-750x1334.png">
+<link rel="apple-touch-startup-image" media="(device-width:320px) and (device-height:568px) and (-webkit-device-pixel-ratio:2) and (orientation:portrait)" href="assets/inicio-640x1136.png">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -17,6 +34,7 @@
 <body>
 
 <a class="skip-link" href="#contenido">Ir al contenido</a>
+
 
 <header class="appbar">
   <img src="assets/logo-neonatologia-hsjd.jpg" alt="" class="appbar__logo">
@@ -31,6 +49,15 @@
     <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M17 7V3H7v4H4v9h3v5h10v-5h3V7h-3ZM9 5h6v2H9V5Zm6 14H9v-4h6v4Zm4-5h-2v-1H7v1H5V9h14v5Z"/></svg>
   </button>
 </header>
+
+<div class="instalar" id="instalar" hidden>
+  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2 8 6h3v8h2V6h3l-4-4ZM5 18v-6H3v6a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-6h-2v6H5Z"/></svg>
+  <p id="instalarTexto"></p>
+  <button type="button" class="boton boton--texto" id="instalarAccion" hidden>Instalar</button>
+  <button type="button" class="icono icono--chico" id="instalarCerrar" aria-label="Cerrar aviso">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12 19 6.41Z"/></svg>
+  </button>
+</div>
 
 <nav class="pasos" id="pasos" aria-label="Pasos">
   <button type="button" class="paso-chip is-activo" data-paso="1"><span class="paso-chip__n">1</span>Paciente</button>

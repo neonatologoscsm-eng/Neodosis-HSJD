@@ -44,6 +44,7 @@ function fx(titulo, lineas) {
 
 /* ------------------------------------------------------------- estado */
 const LS = 'neodosis-hsjd-v2';
+const LS_INSTALAR = 'neodosis-aviso-instalar';
 const estado = {
   paso: 1,
   peso: null, egSem: null, egDia: null, edad: null, fn: '',
@@ -643,9 +644,64 @@ function init() {
   render();
   if (estado.paso === 1) $('#inPeso').focus();
 
+  avisoInstalacion();
+
   if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
     navigator.serviceWorker.register('sw.js').catch(() => {});
   }
+}
+
+/* ------------------------------------------------- instalar como app */
+/** Explica cómo dejar la app en la pantalla de inicio; en Android ofrece
+    el botón de instalación del navegador. Sólo aparece si no está instalada. */
+function avisoInstalacion() {
+  const caja = $('#instalar');
+  const instalada = (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) ||
+                    window.navigator.standalone === true;
+  let descartado = false;
+  try { descartado = localStorage.getItem(LS_INSTALAR) === '1'; } catch (e) {}
+  if (instalada || descartado) return;
+
+  const ua = navigator.userAgent || '';
+  const esIOS = /iPad|iPhone|iPod/.test(ua) ||
+                (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  const esSafari = esIOS && !/CriOS|FxiOS|EdgiOS|OPiOS/.test(ua);
+
+  if (esIOS) {
+    $('#instalarTexto').textContent = esSafari
+      ? 'Téngala como app: Compartir → «Añadir a pantalla de inicio».'
+      : 'Ábrala en Safari y use Compartir → «Añadir a pantalla de inicio».';
+  } else {
+    $('#instalarTexto').textContent = 'Puede instalarla como app y usarla sin conexión.';
+  }
+  caja.hidden = false;
+
+  $('#instalarCerrar').addEventListener('click', () => {
+    caja.hidden = true;
+    try { localStorage.setItem(LS_INSTALAR, '1'); } catch (e) {}
+  });
+
+  /* Android / escritorio: instalación con un toque cuando el navegador la ofrece. */
+  let propuesta = null;
+  window.addEventListener('beforeinstallprompt', ev => {
+    ev.preventDefault();
+    propuesta = ev;
+    $('#instalarTexto').textContent = 'Instálela como app para usarla sin conexión.';
+    $('#instalarAccion').hidden = false;
+    caja.hidden = false;
+  });
+  $('#instalarAccion').addEventListener('click', async () => {
+    if (!propuesta) return;
+    propuesta.prompt();
+    await propuesta.userChoice;
+    propuesta = null;
+    caja.hidden = true;
+    try { localStorage.setItem(LS_INSTALAR, '1'); } catch (e) {}
+  });
+  window.addEventListener('appinstalled', () => {
+    caja.hidden = true;
+    try { localStorage.setItem(LS_INSTALAR, '1'); } catch (e) {}
+  });
 }
 
 document.addEventListener('DOMContentLoaded', init);

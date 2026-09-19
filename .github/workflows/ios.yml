@@ -1,0 +1,79 @@
+name: Compilar app de iOS
+
+# Apple no permite instalar una app fuera de la App Store sin firma: este flujo
+# comprueba que el proyecto de iOS compila y deja el archivo (.xcarchive) listo.
+# Para repartirla entre el equipo hay que firmarla con una cuenta del Apple
+# Developer Program y subirla a TestFlight (ver packaging/README.md).
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main, claude/upbeat-heisenberg-2uqyzs]
+    paths:
+      - '.github/workflows/ios.yml'
+      - 'packaging/package.json'
+      - 'packaging/capacitor.config.json'
+
+permissions:
+  contents: read
+
+jobs:
+  ios:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Copiar la aplicación web al empaquetado
+        run: |
+          rm -rf packaging/www && mkdir -p packaging/www
+          cp index.html manifest.webmanifest sw.js packaging/www/
+          cp -r css js assets packaging/www/
+
+      - name: Instalar Capacitor y generar el proyecto de iOS
+        working-directory: packaging
+        run: |
+          npm install
+          npx cap add ios
+          npx cap sync ios
+
+      - name: Iconos y pantalla de inicio con el logo de la unidad
+        working-directory: packaging
+        continue-on-error: true
+        run: npx @capacitor/assets generate --ios
+
+      - name: Compilar sin firmar (comprobación)
+        working-directory: packaging/ios/App
+        run: |
+          xcodebuild \
+            -workspace App.xcworkspace \
+            -scheme App \
+            -configuration Release \
+            -sdk iphoneos \
+            -destination 'generic/platform=iOS' \
+            -archivePath "$PWD/build/NeoDosis.xcarchive" \
+            archive \
+            CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" \
+            | xcpretty || xcodebuild \
+            -workspace App.xcworkspace \
+            -scheme App \
+            -configuration Release \
+            -sdk iphoneos \
+            -destination 'generic/platform=iOS' \
+            -archivePath "$PWD/build/NeoDosis.xcarchive" \
+            archive \
+            CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY=""
+
+      - name: Empaquetar el archivo de compilación
+        run: |
+          cd packaging/ios/App/build
+          zip -qry "$GITHUB_WORKSPACE/NeoDosis-iOS-${{ github.run_number }}.zip" NeoDosis.xcarchive
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ios-xcarchive
+          path: NeoDosis-iOS-${{ github.run_number }}.zip
+          if-no-files-found: error

@@ -1,10 +1,11 @@
 /* NeoDosis HSJD — service worker: la app queda disponible sin conexión. */
-const CACHE = 'neodosis-v2';
+const CACHE = 'neodosis-v3';
 const ARCHIVOS = [
   './', './index.html', './css/styles.css',
   './js/calculo.js', './js/data.js', './js/antimicrobianos.js', './js/app.js',
   './assets/logo-neonatologia-hsjd.jpg', './assets/icono-192.png',
-  './assets/icono-512.png', './assets/icono-maskable-512.png', './manifest.webmanifest'
+  './assets/icono-512.png', './assets/icono-maskable-512.png',
+  './assets/icono-ios-180.png', './manifest.webmanifest'
 ];
 
 self.addEventListener('install', ev => {
