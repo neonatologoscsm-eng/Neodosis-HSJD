@@ -7,19 +7,36 @@ versión definitiva.
 > tratante y con enfermería/matronería antes de administrarse. Si algo no calza con
 > la planilla, avise: es justamente lo que queremos detectar en esta prueba.
 
-## Opción 1 · Abrirla desde el enlace (lo más simple)
+## Opción 1 · Abrirla desde el enlace (sirve en cualquier equipo)
 
 1. Abra el enlace en el teléfono, el computador o el PC de la unidad.
 2. Funciona de inmediato, sin instalar nada.
 3. Si quiere tenerla como una app en el teléfono:
    - **Android (Chrome):** menú ⋮ → *Añadir a pantalla principal* / *Instalar aplicación*.
-   - **iPhone (Safari):** botón Compartir → *Añadir a pantalla de inicio*.
+   - **iPhone (Safari):** botón Compartir → *Añadir a pantalla de inicio* (detalle en la opción 2).
 
 Una vez agregada queda con el logo de la unidad, se abre a pantalla completa y
 **sigue funcionando sin señal ni wifi** (se guarda en el teléfono la primera vez que
 se abre con conexión).
 
-## Opción 2 · Instalar el APK en Android
+## Opción 2 · Instalarla en el iPhone
+
+En iPhone **no se puede instalar un archivo de app** como en Android: Apple sólo
+permite instalar desde la App Store o TestFlight. La forma de tenerla como app,
+que es la que usamos para esta prueba, es añadirla a la pantalla de inicio:
+
+1. Abra el enlace **en Safari** (no en Chrome ni desde otra app).
+2. Toque el botón **Compartir** (el cuadrado con la flecha hacia arriba).
+3. Elija **Añadir a pantalla de inicio** y confirme.
+
+Queda con el logo de la unidad y el nombre *NeoDosis*, se abre a pantalla
+completa —sin barras del navegador— y **funciona sin señal ni wifi** una vez que
+se abrió la primera vez con conexión. Los datos del paciente quedan sólo en ese
+teléfono.
+
+Si el iPhone está en modo oscuro, la app también lo sigue.
+
+## Opción 3 · Instalar el APK en Android
 
 Útil si prefiere una app instalada de verdad o si el teléfono no tiene conexión la
 primera vez.

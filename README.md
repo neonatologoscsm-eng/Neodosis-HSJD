@@ -126,7 +126,14 @@ Dos vías, ambas automáticas desde GitHub Actions:
 | Vía | Cómo se genera | Para quién |
 |---|---|---|
 | **Enlace web (PWA)** | `.github/workflows/pages.yml` publica el sitio en GitHub Pages en cada push. Se instala en el teléfono desde el navegador («Añadir a pantalla de inicio») y funciona sin conexión | Todo el equipo, en Android, iPhone o computador |
-| **APK de Android** | `.github/workflows/apk.yml` empaqueta la app con Capacitor y publica el archivo en el prelanzamiento `apk-prueba` de *Releases*. Ejecutar desde la pestaña **Actions → Compilar APK de prueba → Run workflow** | Quien prefiera una app instalada |
+| **APK de Android** | `.github/workflows/apk.yml` empaqueta la app con Capacitor y publica el archivo en el prelanzamiento `apk-prueba` de *Releases* | Quien prefiera una app instalada |
+| **iPhone / iPad** | Desde Safari: *Compartir → Añadir a pantalla de inicio*. Queda a pantalla completa, con el logo de la unidad y funciona sin conexión | Todo el equipo con iPhone |
+
+En iPhone no hay un archivo instalable equivalente al APK: Apple sólo permite
+instalar desde la App Store o TestFlight, y ambas exigen el Apple Developer
+Program. `.github/workflows/ios.yml` deja el proyecto de iOS compilando en un
+runner de macOS para cuando se decida publicarlo; los pasos están en
+[`packaging/README.md`](packaging/README.md).
 
 ### Activar el enlace (una sola vez)
 
