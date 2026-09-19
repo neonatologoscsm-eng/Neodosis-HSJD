@@ -7,6 +7,10 @@ versión definitiva.
 > tratante y con enfermería/matronería antes de administrarse. Si algo no calza con
 > la planilla, avise: es justamente lo que queremos detectar en esta prueba.
 
+## El enlace
+
+**https://neonatologoscsm-eng.github.io/Neodosis-HSJD/**
+
 ## Opción 1 · Abrirla desde el enlace (sirve en cualquier equipo)
 
 1. Abra el enlace en el teléfono, el computador o el PC de la unidad.
@@ -25,7 +29,8 @@ En iPhone **no se puede instalar un archivo de app** como en Android: Apple sól
 permite instalar desde la App Store o TestFlight. La forma de tenerla como app,
 que es la que usamos para esta prueba, es añadirla a la pantalla de inicio:
 
-1. Abra el enlace **en Safari** (no en Chrome ni desde otra app).
+1. Abra **https://neonatologoscsm-eng.github.io/Neodosis-HSJD/** en **Safari**
+   (no en Chrome ni desde otra app).
 2. Toque el botón **Compartir** (el cuadrado con la flecha hacia arriba).
 3. Elija **Añadir a pantalla de inicio** y confirme.
 

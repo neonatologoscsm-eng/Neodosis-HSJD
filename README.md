@@ -125,7 +125,7 @@ Dos vías, ambas automáticas desde GitHub Actions:
 
 | Vía | Cómo se genera | Para quién |
 |---|---|---|
-| **Enlace web (PWA)** | `.github/workflows/pages.yml` publica el sitio en GitHub Pages en cada push. Se instala en el teléfono desde el navegador («Añadir a pantalla de inicio») y funciona sin conexión | Todo el equipo, en Android, iPhone o computador |
+| **Enlace web (PWA)** | `.github/workflows/pages.yml` regenera la rama `gh-pages` en cada cambio; GitHub Pages sirve el sitio. Se instala en el teléfono desde el navegador («Añadir a pantalla de inicio») y funciona sin conexión | Todo el equipo, en Android, iPhone o computador |
 | **APK de Android** | `.github/workflows/apk.yml` empaqueta la app con Capacitor y publica el archivo en el prelanzamiento `apk-prueba` de *Releases* | Quien prefiera una app instalada |
 | **iPhone / iPad** | Desde Safari: *Compartir → Añadir a pantalla de inicio*. Queda a pantalla completa, con el logo de la unidad y funciona sin conexión | Todo el equipo con iPhone |
 
@@ -135,21 +135,15 @@ Program. `.github/workflows/ios.yml` deja el proyecto de iOS compilando en un
 runner de macOS para cuando se decida publicarlo; los pasos están en
 [`packaging/README.md`](packaging/README.md).
 
-### Activar el enlace (una sola vez)
+### El enlace
 
-GitHub Pages no se puede habilitar desde el flujo de trabajo en un repositorio
-personal, así que la primera vez hay que encenderlo a mano:
+El sitio está publicado en:
 
-1. En el repositorio: **Settings → Pages**.
-2. En *Build and deployment → Source*, elegir **GitHub Actions**.
-3. En **Actions → Publicar sitio (GitHub Pages)**, usar *Re-run jobs* en la última
-   ejecución (o subir cualquier cambio).
+**https://neonatologoscsm-eng.github.io/Neodosis-HSJD/**
 
-El sitio queda en `https://neonatologoscsm-eng.github.io/Neodosis-HSJD/`.
-
-El entorno `github-pages` acepta por omisión sólo la rama principal: si el sitio se
-publica desde una rama de trabajo, hay que fusionarla a `main` o añadir esa rama en
-**Settings → Environments → github-pages → Deployment branches**.
+Se sirve desde la rama `gh-pages`, que el flujo `pages.yml` regenera con el
+contenido de `main` cada vez que cambia la aplicación; al final comprueba que el
+sitio, el manifiesto, el icono de iOS y el guion de la aplicación responden.
 
 ### Sobre la firma del APK
 
