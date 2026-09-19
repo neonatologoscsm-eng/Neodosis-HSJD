@@ -1,8 +1,11 @@
 name: Publicar sitio (GitHub Pages)
 
+# El sitio se sirve desde la rama gh-pages. Este flujo la regenera con el
+# contenido de main en cada cambio de la aplicación y comprueba que quedó en línea.
+
 on:
   push:
-    branches: [main, claude/upbeat-heisenberg-2uqyzs]
+    branches: [main]
     paths:
       - 'index.html'
       - 'css/**'
@@ -14,20 +17,18 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
-  pages: write
-  id-token: write
+  contents: write
 
 concurrency:
   group: pages
   cancel-in-progress: false
 
+env:
+  SITIO: https://neonatologoscsm-eng.github.io/Neodosis-HSJD/
+
 jobs:
   publicar:
     runs-on: ubuntu-latest
-    environment:
-      name: github-pages
-      url: ${{ steps.despliegue.outputs.page_url }}
     steps:
       - uses: actions/checkout@v4
 
@@ -38,13 +39,29 @@ jobs:
           cp -r css js assets sitio/
           touch sitio/.nojekyll
 
-      - uses: actions/configure-pages@v5
-        with:
-          enablement: true
+      - name: Publicar en la rama gh-pages
+        run: |
+          cd sitio
+          git init -q
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -q -m "Sitio publicado desde ${GITHUB_SHA::7}"
+          git push -qf "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git" HEAD:gh-pages
 
-      - uses: actions/upload-pages-artifact@v3
-        with:
-          path: sitio
-
-      - id: despliegue
-        uses: actions/deploy-pages@v4
+      - name: Comprobar que el sitio responde
+        run: |
+          for i in $(seq 1 30); do
+            codigo=$(curl -sS -o pagina.html -w '%{http_code}' "$SITIO" || echo 000)
+            if [ "$codigo" = "200" ] && grep -q "NeoDosis" pagina.html; then
+              echo "✅ Sitio en línea: $SITIO"
+              curl -sS -o /dev/null -w "  manifiesto: HTTP %{http_code}\n" "${SITIO}manifest.webmanifest"
+              curl -sS -o /dev/null -w "  icono iOS:  HTTP %{http_code}\n" "${SITIO}assets/icono-ios-180.png"
+              curl -sS -o /dev/null -w "  app.js:     HTTP %{http_code}\n" "${SITIO}js/app.js"
+              exit 0
+            fi
+            echo "  intento $i: HTTP $codigo, reintentando…"
+            sleep 20
+          done
+          echo "::error::El sitio no respondió 200 tras 10 minutos"
+          exit 1
