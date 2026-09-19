@@ -79,4 +79,8 @@ jobs:
               --title "NeoDosis HSJD · versión de prueba" \
               --notes "APK de prueba firmado con la clave de depuración de Android, para instalar y evaluar en la unidad. No es la versión definitiva ni está publicada en Google Play. Al instalarlo Android pedirá autorizar la instalación desde esta fuente."
           fi
+          # Deja sólo el APK más reciente, para que nadie instale una versión vieja
+          gh release view apk-prueba --json assets --jq '.assets[].name' \
+            | grep -v '^${{ steps.apk.outputs.nombre }}$' \
+            | while read -r viejo; do gh release delete-asset apk-prueba "$viejo" -y || true; done
           gh release upload apk-prueba "${{ steps.apk.outputs.nombre }}" --clobber
