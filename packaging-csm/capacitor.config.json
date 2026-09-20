@@ -1,0 +1,11 @@
+{
+  "appId": "cl.csm.neonatologia.neocalc",
+  "appName": "NeoCalc CSM",
+  "webDir": "www",
+  "android": {
+    "allowMixedContent": false
+  },
+  "server": {
+    "androidScheme": "https"
+  }
+}

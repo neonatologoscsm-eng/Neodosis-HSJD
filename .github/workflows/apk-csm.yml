@@ -1,0 +1,80 @@
+name: Compilar APK · Clínica Santa María
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'csm/**'
+      - 'packaging-csm/**'
+      - '.github/workflows/apk-csm.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  apk:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Copiar la aplicación web al empaquetado
+        run: |
+          rm -rf packaging-csm/www && mkdir -p packaging-csm/www
+          cp csm/index.html csm/manifest.webmanifest csm/sw.js packaging-csm/www/
+          cp -r csm/css csm/js csm/assets packaging-csm/www/
+
+      - name: Instalar Capacitor y generar el proyecto Android
+        working-directory: packaging-csm
+        run: |
+          npm install
+          npx cap add android
+          npx cap sync android
+
+      - name: Iconos y pantalla de inicio con la marca de la clínica
+        working-directory: packaging-csm
+        continue-on-error: true
+        run: npx @capacitor/assets generate --android
+
+      - name: Compilar el APK (firma de depuración)
+        working-directory: packaging-csm/android
+        run: |
+          chmod +x gradlew
+          ./gradlew assembleDebug --no-daemon
+
+      - name: Nombrar el archivo
+        id: apk
+        run: |
+          NOMBRE="NeoCalc-CSM-prueba-${{ github.run_number }}.apk"
+          cp packaging-csm/android/app/build/outputs/apk/debug/app-debug.apk "$NOMBRE"
+          echo "nombre=$NOMBRE" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: apk-csm
+          path: ${{ steps.apk.outputs.nombre }}
+          if-no-files-found: error
+
+      - name: Publicar como prelanzamiento descargable
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if ! gh release view apk-csm >/dev/null 2>&1; then
+            gh release create apk-csm \
+              --prerelease \
+              --title "Calculadora de Medicamentos · Clínica Santa María (prueba)" \
+              --notes "APK de prueba de la calculadora de la Unidad de Neonatología de Clínica Santa María, firmado con la clave de depuración de Android. Para instalar y evaluar; no es la versión definitiva ni está publicada en Google Play."
+          fi
+          gh release view apk-csm --json assets --jq '.assets[].name' \
+            | grep -v '^${{ steps.apk.outputs.nombre }}$' \
+            | while read -r viejo; do gh release delete-asset apk-csm "$viejo" -y || true; done
+          gh release upload apk-csm "${{ steps.apk.outputs.nombre }}" --clobber

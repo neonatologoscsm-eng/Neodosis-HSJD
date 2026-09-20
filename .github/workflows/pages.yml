@@ -13,6 +13,7 @@ on:
       - 'assets/**'
       - 'manifest.webmanifest'
       - 'sw.js'
+      - 'csm/**'
       - '.github/workflows/pages.yml'
   workflow_dispatch:
 
@@ -37,6 +38,9 @@ jobs:
           mkdir -p sitio
           cp index.html manifest.webmanifest sw.js sitio/
           cp -r css js assets sitio/
+          mkdir -p sitio/csm
+          cp csm/index.html csm/manifest.webmanifest csm/sw.js sitio/csm/
+          cp -r csm/css csm/js csm/assets sitio/csm/
           touch sitio/.nojekyll
 
       - name: Publicar en la rama gh-pages
@@ -58,6 +62,11 @@ jobs:
               curl -sS -o /dev/null -w "  manifiesto: HTTP %{http_code}\n" "${SITIO}manifest.webmanifest"
               curl -sS -o /dev/null -w "  icono iOS:  HTTP %{http_code}\n" "${SITIO}assets/icono-ios-180.png"
               curl -sS -o /dev/null -w "  app.js:     HTTP %{http_code}\n" "${SITIO}js/app.js"
+              echo "Aplicación de Clínica Santa María:"
+              curl -sS -o csm.html -w "  csm/:       HTTP %{http_code}\n" "${SITIO}csm/"
+              grep -q "NeoCalc CSM" csm.html && echo "  título correcto" || { echo "::error::La app CSM no responde"; exit 1; }
+              curl -sS -o /dev/null -w "  csm/app.js: HTTP %{http_code}\n" "${SITIO}csm/js/app.js"
+              curl -sS -o /dev/null -w "  logo CSM:   HTTP %{http_code}\n" "${SITIO}csm/assets/logo-csm.png"
               exit 0
             fi
             echo "  intento $i: HTTP $codigo, reintentando…"
