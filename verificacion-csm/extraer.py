@@ -113,7 +113,12 @@ for r in range(10, 27):
         'xlPrep': txt(H), 'xlVial': txt(ws[f'J{r}'].value), 'nota': txt(ws[f'L{r}'].value),
     }
     if A:
-        actual = {'nombre': A, 'concentracion': txt(ws[f'B{r}'].value), 'lineas': [fila]}
+        # En la planilla el nombre trae pegada la presentación y a veces una
+        # nota, separadas por varios espacios: se parten para la lista.
+        crudo = str(ws[f'A{r}'].value)
+        partes = [x.strip() for x in re.split(r'\s{2,}', crudo) if x.strip()]
+        actual = {'nombre': partes[0], 'detalle': ' · '.join(partes[1:]),
+                  'concentracion': txt(ws[f'B{r}'].value), 'lineas': [fila]}
         bic.append(actual)
     elif actual:
         actual['lineas'].append(fila)

@@ -84,8 +84,8 @@ BOLOS_CSM.forEach(m => CATALOGO.push({
 }));
 BIC_CSM.forEach(m => CATALOGO.push({
   id: 'i|' + m.nombre, tipo: 'bic', grupo: 'Infusiones continuas',
-  nombre: m.nombre.split('  ')[0].trim(), sub: m.concentracion, ref: m,
-  alias: 'bic infusion goteo ' + m.nombre
+  nombre: m.nombre, sub: [m.detalle, m.concentracion].filter(Boolean).join(' · '), ref: m,
+  alias: 'bic infusion goteo perfusion ' + (m.detalle || '')
 }));
 ORALES_CSM.forEach(m => CATALOGO.push({
   id: 'o|' + m.nombre, tipo: 'oral', grupo: 'Medicamentos orales',
@@ -93,7 +93,7 @@ ORALES_CSM.forEach(m => CATALOGO.push({
 }));
 ANTIBIOTICOS_CSM.forEach(m => CATALOGO.push({
   id: 'a|' + m.nombre, tipo: 'anti', grupo: 'Antibióticos',
-  nombre: m.nombre, sub: 'Tabla por edad gestacional, edad y peso', ref: m,
+  nombre: m.nombre, sufijo: ' · tabla', sub: 'Tabla por edad gestacional, edad y peso', ref: m,
   alias: 'antibiotico ' + (m.fuente || '')
 }));
 CATALOGO.push({ id: 'e|urgencia', tipo: 'urgencia', grupo: 'Otros cálculos', nombre: 'Hoja de urgencia',
@@ -111,7 +111,8 @@ CATALOGO.push({ id: 'e|nutricion', tipo: 'nutricion', grupo: 'Otros cálculos', 
 
 CATALOGO.forEach(c => {
   c.busca = sinTildes(c.nombre + ' ' + (c.sub || '') + ' ' + (c.alias || ''));
-  c.chip = c.nombre + (c.tipo === 'bic' ? ' · infusión' : c.tipo === 'oral' ? ' · oral' : '');
+  c.chip = c.nombre + (c.sufijo || '') +
+    (c.tipo === 'bic' ? ' · infusión' : c.tipo === 'oral' ? ' · oral' : '');
 });
 const porId = id => CATALOGO.find(c => c.id === id);
 const GRUPOS = ['Bolos EV', 'Infusiones continuas', 'Medicamentos orales', 'Antibióticos', 'Esquemas', 'Otros cálculos'];
@@ -217,7 +218,7 @@ function fichaBic(item, ctx) {
   return `<article class="ficha">
     <header class="ficha__cab">
       <div><div class="ficha__nombre">${esc(m.nombre)}</div>
-        <div class="ficha__conc">Concentración recomendada: ${esc(m.concentracion)}</div></div>
+        <div class="ficha__conc">${m.detalle ? esc(m.detalle) + ' · ' : ''}Concentración recomendada: ${esc(m.concentracion)}</div></div>
       <span class="via">BIC</span>
     </header>
     <div class="ficha__cuerpo">${lineas}</div>

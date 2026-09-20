@@ -1132,7 +1132,8 @@ const BOLOS_CSM = [
 
 const BIC_CSM = [
   {
-    "nombre": "Adrenalina/Epinefrina 1mg/ 1 mL",
+    "nombre": "Adrenalina/Epinefrina",
+    "detalle": "1mg/ 1 mL",
     "concentracion": "1 mg/ 1 ml",
     "lineas": [
       {
@@ -1164,7 +1165,8 @@ const BIC_CSM = [
     ]
   },
   {
-    "nombre": "Alprostadil (Prostaglandina E1) 500 mcg/1 mL",
+    "nombre": "Alprostadil (Prostaglandina E1)",
+    "detalle": "500 mcg/1 mL",
     "concentracion": "10 mcg/ 1 mL",
     "lineas": [
       {
@@ -1183,7 +1185,8 @@ const BIC_CSM = [
     ]
   },
   {
-    "nombre": "Dobutamina 250 mg/ 5mL",
+    "nombre": "Dobutamina",
+    "detalle": "250 mg/ 5mL",
     "concentracion": "250 mg / 5 mL",
     "lineas": [
       {
@@ -1202,7 +1205,8 @@ const BIC_CSM = [
     ]
   },
   {
-    "nombre": "Dopamina 200 mg/ 5 mL Dosis > 10: VCP/VCS",
+    "nombre": "Dopamina",
+    "detalle": "200 mg/ 5 mL · Dosis > 10: VCP/VCS",
     "concentracion": "200 mg/ 5 mL",
     "lineas": [
       {
@@ -1234,7 +1238,8 @@ const BIC_CSM = [
     ]
   },
   {
-    "nombre": "Fentanilo 500 mcg/ 10 mL",
+    "nombre": "Fentanilo",
+    "detalle": "500 mcg/ 10 mL",
     "concentracion": "500 mcg/ 10 mL",
     "lineas": [
       {
@@ -1253,7 +1258,8 @@ const BIC_CSM = [
     ]
   },
   {
-    "nombre": "Insulina Actrapid 100 UI/mL",
+    "nombre": "Insulina",
+    "detalle": "Actrapid 100 UI/mL",
     "concentracion": "10 UI/mL",
     "lineas": [
       {
@@ -1272,7 +1278,8 @@ const BIC_CSM = [
     ]
   },
   {
-    "nombre": "Midazolam 5mg/1 mL",
+    "nombre": "Midazolam",
+    "detalle": "5mg/1 mL",
     "concentracion": "5mg/ 5mL",
     "lineas": [
       {
@@ -1291,7 +1298,8 @@ const BIC_CSM = [
     ]
   },
   {
-    "nombre": "Milrinona 10 mg/ 10 mL",
+    "nombre": "Milrinona",
+    "detalle": "10 mg/ 10 mL",
     "concentracion": "1 mg/ 1 mL",
     "lineas": [
       {
@@ -1310,7 +1318,8 @@ const BIC_CSM = [
     ]
   },
   {
-    "nombre": "Morfina 10 mg/ 1 mL",
+    "nombre": "Morfina",
+    "detalle": "10 mg/ 1 mL",
     "concentracion": "10 mg/ 1 mL",
     "lineas": [
       {
@@ -1329,7 +1338,8 @@ const BIC_CSM = [
     ]
   },
   {
-    "nombre": "Noradrenalina 4 mg/ 4 mL",
+    "nombre": "Noradrenalina",
+    "detalle": "4 mg/ 4 mL",
     "concentracion": "4 mg/ 4 mL",
     "lineas": [
       {
@@ -1348,7 +1358,8 @@ const BIC_CSM = [
     ]
   },
   {
-    "nombre": "Precedex (dexmedetomidina) 200 mcg/ 2 mL",
+    "nombre": "Precedex (dexmedetomidina)",
+    "detalle": "200 mcg/ 2 mL",
     "concentracion": "200 mcg/ 2 mL",
     "lineas": [
       {
@@ -1367,7 +1378,8 @@ const BIC_CSM = [
     ]
   },
   {
-    "nombre": "Propofol 200 mg/ 20 mL",
+    "nombre": "Propofol",
+    "detalle": "200 mg/ 20 mL",
     "concentracion": "200 mg/ 20 mL",
     "lineas": [
       {
@@ -1386,7 +1398,8 @@ const BIC_CSM = [
     ]
   },
   {
-    "nombre": "Sildenafil 8 mg/10 ml",
+    "nombre": "Sildenafil",
+    "detalle": "8 mg/10 ml",
     "concentracion": "8 mg/10 ml",
     "lineas": [
       {
@@ -1405,7 +1418,8 @@ const BIC_CSM = [
     ]
   },
   {
-    "nombre": "Vecuronio 10 mg",
+    "nombre": "Vecuronio",
+    "detalle": "10 mg",
     "concentracion": "10 mg/ 10 mL",
     "lineas": [
       {
