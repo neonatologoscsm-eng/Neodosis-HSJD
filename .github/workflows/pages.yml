@@ -55,22 +55,27 @@ jobs:
 
       - name: Comprobar que el sitio responde
         run: |
+          # GitHub Pages republica de forma asíncrona: se espera a que las dos
+          # aplicaciones respondan, no sólo la raíz (que puede seguir sirviendo
+          # la versión anterior).
           for i in $(seq 1 30); do
-            codigo=$(curl -sS -o pagina.html -w '%{http_code}' "$SITIO" || echo 000)
-            if [ "$codigo" = "200" ] && grep -q "NeoDosis" pagina.html; then
-              echo "✅ Sitio en línea: $SITIO"
-              curl -sS -o /dev/null -w "  manifiesto: HTTP %{http_code}\n" "${SITIO}manifest.webmanifest"
-              curl -sS -o /dev/null -w "  icono iOS:  HTTP %{http_code}\n" "${SITIO}assets/icono-ios-180.png"
-              curl -sS -o /dev/null -w "  app.js:     HTTP %{http_code}\n" "${SITIO}js/app.js"
-              echo "Aplicación de Clínica Santa María:"
-              curl -sS -o csm.html -w "  csm/:       HTTP %{http_code}\n" "${SITIO}csm/"
-              grep -q "NeoCalc CSM" csm.html && echo "  título correcto" || { echo "::error::La app CSM no responde"; exit 1; }
-              curl -sS -o /dev/null -w "  csm/app.js: HTTP %{http_code}\n" "${SITIO}csm/js/app.js"
-              curl -sS -o /dev/null -w "  logo CSM:   HTTP %{http_code}\n" "${SITIO}csm/assets/logo-csm.png"
+            raiz=$(curl -sS -o raiz.html -w '%{http_code}' "$SITIO" || echo 000)
+            csm=$(curl -sS -o csm.html -w '%{http_code}' "${SITIO}csm/" || echo 000)
+            if [ "$raiz" = "200" ] && grep -q "NeoDosis" raiz.html \
+               && [ "$csm" = "200" ] && grep -q "NeoCalc CSM" csm.html; then
+              echo "✅ Las dos aplicaciones están en línea"
+              echo "   HSJD: $SITIO"
+              curl -sS -o /dev/null -w "     manifiesto: HTTP %{http_code}\n" "${SITIO}manifest.webmanifest"
+              curl -sS -o /dev/null -w "     app.js:     HTTP %{http_code}\n" "${SITIO}js/app.js"
+              echo "   Clínica Santa María: ${SITIO}csm/"
+              curl -sS -o /dev/null -w "     manifiesto: HTTP %{http_code}\n" "${SITIO}csm/manifest.webmanifest"
+              curl -sS -o /dev/null -w "     app.js:     HTTP %{http_code}\n" "${SITIO}csm/js/app.js"
+              curl -sS -o /dev/null -w "     logo:       HTTP %{http_code}\n" "${SITIO}csm/assets/logo-csm.png"
+              curl -sS -o /dev/null -w "     icono iOS:  HTTP %{http_code}\n" "${SITIO}csm/assets/icono-ios-180.png"
               exit 0
             fi
-            echo "  intento $i: HTTP $codigo, reintentando…"
+            echo "  intento $i: raíz HTTP $raiz, csm HTTP $csm, reintentando…"
             sleep 20
           done
-          echo "::error::El sitio no respondió 200 tras 10 minutos"
+          echo "::error::El sitio no quedó completo tras 10 minutos"
           exit 1
