@@ -7,9 +7,13 @@ versión definitiva.
 > tratante y con enfermería/matronería antes de administrarse. Si algo no calza con
 > la planilla, avise: es justamente lo que queremos detectar en esta prueba.
 
-## El enlace
+## Los enlaces
 
-**https://neonatologoscsm-eng.github.io/Neodosis-HSJD/**
+- **Hospital San Juan de Dios:** https://neonatologoscsm-eng.github.io/Neodosis-HSJD/
+- **Clínica Santa María:** https://neonatologoscsm-eng.github.io/Neodosis-HSJD/csm/
+
+Las instrucciones que siguen valen igual para las dos: cada una se instala por
+separado y queda con el logo de su institución.
 
 ## Opción 1 · Abrirla desde el enlace (sirve en cualquier equipo)
 

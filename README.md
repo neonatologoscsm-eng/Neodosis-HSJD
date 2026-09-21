@@ -1,3 +1,18 @@
+# Calculadoras de medicamentos neonatales
+
+Este repositorio contiene **dos aplicaciones**, cada una réplica fiel de la
+planilla que usa su unidad:
+
+| Aplicación | Enlace | APK |
+|---|---|---|
+| **NeoDosis HSJD** — Hospital San Juan de Dios | https://neonatologoscsm-eng.github.io/Neodosis-HSJD/ | [`apk-prueba`](https://github.com/neonatologoscsm-eng/Neodosis-HSJD/releases/tag/apk-prueba) |
+| **NeoCalc CSM** — Clínica Santa María ([detalle](csm/README.md)) | https://neonatologoscsm-eng.github.io/Neodosis-HSJD/csm/ | [`apk-csm`](https://github.com/neonatologoscsm-eng/Neodosis-HSJD/releases/tag/apk-csm) |
+
+Lo que sigue documenta la aplicación del **Hospital San Juan de Dios**; la de
+Clínica Santa María tiene su propio [README](csm/README.md).
+
+---
+
 # NeoDosis HSJD
 
 Aplicación web para el **cálculo de medicamentos de alto riesgo** de la Unidad de
