@@ -29,9 +29,19 @@ planilla.
 ## Diferencia útil respecto de la planilla
 
 En las tablas de antibióticos la planilla muestra todas las filas y la elección
-de cuál corresponde se hace a ojo. La app marca en ámbar —**«este paciente»**—
-la fila que cumple los criterios de edad gestacional, edad postnatal y peso
-ingresados. Los valores son los mismos: sólo se señala la fila.
+de cuál corresponde se hace a ojo. La app:
+
+- marca en ámbar —**«este paciente»**— la fila que cumple los criterios de edad
+  gestacional, edad postnatal y peso ingresados;
+- encabeza la ficha con la **dosis y el intervalo recomendados** para ese
+  paciente (y la dosis de carga cuando la tabla la tiene), de modo que no haya
+  que leer la tabla completa;
+- repite ese bloque en la ficha del **bolo o del preparado oral** del mismo
+  fármaco, que en la planilla sólo dice «ver dosis en antibióticos».
+
+Los valores son los de la planilla: lo que cambia es que se señala cuál aplica.
+En los fármacos para los que la planilla no define intervalo, la ficha lo dice
+explícitamente en vez de dejar el dato en blanco.
 
 ## Verificación
 

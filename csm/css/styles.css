@@ -433,3 +433,39 @@ main{max-width:1020px;margin:0 auto;padding:0 clamp(1rem,4vw,1.5rem)}
   .resumen{border:1px solid #bbb}
   @page{margin:12mm 10mm}
 }
+
+/* ---------- Dosis e intervalo que corresponden al paciente ---------- */
+.reco{
+  background:var(--ambar-suave);border-radius:var(--r-s);
+  border-left:4px solid var(--ambar);
+  padding:.7rem .85rem;margin:.75rem 0 .5rem;
+}
+.reco__etq{
+  font-size:.7rem;font-weight:700;letter-spacing:.06em;text-transform:uppercase;
+  color:var(--sobre-ambar);margin-bottom:.45rem;
+}
+.reco__item{
+  display:flex;align-items:baseline;gap:.75rem;flex-wrap:wrap;
+  padding:.3rem 0;border-top:1px solid rgba(0,0,0,.08);
+}
+.reco__item:first-of-type{border-top:0}
+.reco__esq{
+  font-size:.75rem;font-weight:700;text-transform:uppercase;letter-spacing:.05em;
+  color:var(--navy);min-width:7.5rem;
+}
+.reco__dosis{font-size:1.05rem;color:var(--tinta)}
+.reco__dosis b{font-size:1.35rem;font-weight:700;font-variant-numeric:tabular-nums}
+.reco__dosis i{font-style:normal;font-size:.8rem;color:var(--gris)}
+.reco__intervalo{
+  background:var(--ambar);color:var(--sobre-ambar);border-radius:var(--r-xs);
+  padding:.2rem .6rem;font-weight:700;font-size:1rem;white-space:nowrap;
+}
+.reco__mgkg{font-size:.8rem;color:var(--gris);margin-left:auto;white-space:nowrap}
+@media (max-width:600px){
+  .reco__esq{min-width:100%}
+  .reco__mgkg{margin-left:0;width:100%}
+}
+@media print{
+  .reco{background:#fdf3e2;border-left:3px solid #b8860b}
+  .reco__intervalo{background:#f6e2bd;color:#5a3c00}
+}

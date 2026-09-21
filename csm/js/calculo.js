@@ -79,7 +79,25 @@ var CalcCSM = (function () {
       const v = m.carga.valores.find(x => ctx.hayPeso && x.aplica(ctx)) || null;
       carga = v ? { crit: v.crit, mgkg: v.mgkg, dosis: (v.mgkg * ctx.g) / 1000 } : null;
     }
-    return { filas, carga };
+    /* La fila que corresponde al paciente: dosis e intervalo recomendados. */
+    const fila = filas.find(f => f.coincide) || null;
+    const recomendado = fila ? m.esquemas.map((e, i) => ({
+      esquema: e,
+      mgkg: fila.mgkg[i],
+      dosis: fila.dosis[i],
+      porToma: fila.porToma ? fila.porToma[i] : null,
+      intervalo: fila.intervalo[i],
+      porDia: !!m.porDia
+    })) : null;
+    return { filas, carga, recomendado, criterios: fila ? fila.crit : null };
+  }
+
+  /** Tabla de antibióticos que corresponde a un fármaco por su nombre. */
+  function tablaDe(nombre) {
+    const norm = t => t.toLowerCase().normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '').replace(/[^a-z]/g, '');
+    const n = norm(nombre);
+    return ANTIBIOTICOS_CSM.find(m => norm(m.nombre) === n) || null;
   }
 
   /** Hoja de urgencia: accesos y fármacos. */
@@ -181,7 +199,7 @@ var CalcCSM = (function () {
     };
   }
 
-  return { contexto, bolo, dosis, volumen, infusion, antibiotico, urgencia,
+  return { contexto, bolo, dosis, volumen, infusion, antibiotico, tablaDe, urgencia,
            dart, weaning, glucosa, ig, nutricion };
 })();
 

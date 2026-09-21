@@ -130,6 +130,37 @@ function valorLinea(l, ctx) {
   return dosis + vol;
 }
 
+
+/** Bloque destacado con la dosis y el intervalo que corresponden al paciente. */
+function bloqueRecomendado(m, ctx, origen) {
+  if (!ctx.hayPeso) return '';
+  const r = CalcCSM.antibiotico(m, ctx);
+  if (!r.recomendado) {
+    return `<div class="alerta">${ICONO_AVISO}<div><b>Falta edad gestacional o edad</b>
+      Con esos datos la app marca la dosis y el intervalo que corresponden a este paciente.</div></div>`;
+  }
+  const criterios = (m.columnas || []).map((c, i) => `${esc(c)}: ${esc(r.criterios[i])}`).join(' · ');
+  const items = r.recomendado.map(x => `
+    <div class="reco__item">
+      ${r.recomendado.length > 1 ? `<span class="reco__esq">${esc(x.esquema)}</span>` : ''}
+      <span class="reco__dosis"><b>${numDosis(x.dosis)}</b> mg${
+        x.porToma ? ` <i>(${numDosis(x.porToma)} mg por toma)</i>` : ''}</span>
+      <span class="reco__intervalo">cada ${x.intervalo} h</span>
+      <span class="reco__mgkg">${numDosis(x.mgkg)} mg/Kg${x.porDia ? '/día' : '/dosis'}</span>
+    </div>`).join('');
+  const carga = r.carga ? `<div class="reco__item">
+      <span class="reco__esq">Carga</span>
+      <span class="reco__dosis"><b>${numDosis(r.carga.dosis)}</b> mg</span>
+      <span class="reco__intervalo">por una vez</span>
+      <span class="reco__mgkg">${numDosis(r.carga.mgkg)} mg/Kg</span>
+    </div>` : '';
+  return `<div class="reco">
+      <div class="reco__etq">Para este paciente${criterios ? ' · ' + criterios : ''}${
+        origen ? ' · según la tabla de antibióticos' : ''}</div>
+      ${carga}${items}
+    </div>`;
+}
+
 function fichaBolo(item, ctx) {
   const m = item.ref;
   const lineas = m.lineas.map(l => `
@@ -144,14 +175,17 @@ function fichaBolo(item, ctx) {
         <div class="valores">${valorLinea(l, ctx)}</div>
       </div>`).join('');
 
+  const tabla = CalcCSM.tablaDe(m.nombre);
   return `<article class="ficha">
     <header class="ficha__cab">
       <div><div class="ficha__nombre">${esc(m.nombre)}</div>
         <div class="ficha__conc">${esc(m.presentacion)}</div></div>
       <span class="via">${esc(m.via)}</span>
     </header>
-    <div class="ficha__cuerpo">${lineas}
+    <div class="ficha__cuerpo">${tabla ? bloqueRecomendado(tabla, ctx, true) : ''}
+      ${tabla ? '<p class="nota">Dosis de referencia de la hoja de bolos (la propia planilla remite a la tabla de antibióticos):</p>' : ''}${lineas}
       ${m.concentracion ? `<p class="nota"><b>Concentración recomendada:</b> ${esc(m.concentracion)}</p>` : ''}
+      ${tabla ? '' : '<p class="nota">La planilla no define un intervalo para este fármaco: indica dosis, dilución y tiempo de infusión.</p>'}
       ${m.nota ? `<div class="alerta">${ICONO_AVISO}<div>${esc(m.nota)}</div></div>` : ''}
     </div>
     <footer class="ficha__pie">
@@ -180,7 +214,9 @@ function fichaOral(item, ctx) {
         <div class="ficha__conc">${esc(m.concentracion)}</div></div>
       <span class="via">${esc(m.via || 'VO')}</span>
     </header>
-    <div class="ficha__cuerpo">${lineas}
+    <div class="ficha__cuerpo">${(() => { const t = CalcCSM.tablaDe(m.nombre);
+      return t ? bloqueRecomendado(t, ctx, true) : ''; })()}${lineas}
+      ${CalcCSM.tablaDe(m.nombre) ? '' : '<p class="nota">La planilla no define un intervalo para este fármaco.</p>'}
       ${m.nota ? `<div class="alerta">${ICONO_AVISO}<div>${esc(m.nota)}</div></div>` : ''}
     </div>
   </article>`;
@@ -239,23 +275,23 @@ function fichaAnti(item, ctx) {
   const filas = r.filas.map(f => {
     const celdas = f.crit.map((c, i) => `<td data-etq="${esc(m.columnas[i] || '')}">${esc(c)}${
       f.coincide && i === 0 ? '<span class="marca-fila">Este paciente</span>' : ''}</td>`).join('');
-    const valores = f.dosis.map((d, i) => `
-      <td class="num" data-etq="${esc(m.esquemas[i])} mg/Kg">${numDosis(f.mgkg[i])}</td>
-      <td class="num fuerte" data-etq="${esc(m.esquemas[i])} dosis">${ctx.hayPeso ? numDosis(d) + ' mg' : '—'}${
+    const valores = f.dosis.map((d, i) => {
+      const esq = m.esquemas[i];
+      const etqDosis = esq === 'Dosis' ? 'Dosis a administrar' : esq + ' · dosis';
+      const etqKg = esq === 'Dosis' ? 'Dosis por Kg' : esq + ' · mg/Kg';
+      return `
+      <td class="num" data-etq="${esc(etqKg)}">${numDosis(f.mgkg[i])}</td>
+      <td class="num fuerte" data-etq="${esc(etqDosis)}">${ctx.hayPeso ? numDosis(d) + ' mg' : '—'}${
         f.porToma ? `<br><span class="num" style="font-weight:400;font-size:.8rem">${numDosis(f.porToma[i])} mg por toma</span>` : ''}</td>
-      <td class="num" data-etq="Intervalo"><span class="intervalo">c/${f.intervalo[i]} h</span></td>`).join('');
+      <td class="num" data-etq="Intervalo"><span class="intervalo">c/${f.intervalo[i]} h</span></td>`;
+    }).join('');
     return `<tr class="${f.coincide ? 'coincide' : ''}">${celdas}${valores}</tr>`;
   }).join('');
-
-  const carga = r.carga ? `<div class="linea">
-      <div><div class="linea__etq">${esc(m.carga.etiqueta)}</div>
-        <div class="linea__det">${esc(r.carga.crit)} · ${numDosis(r.carga.mgkg)} mg/Kg</div></div>
-      <div class="valores"><span class="valor"><b>${numDosis(r.carga.dosis)}</b><i>mg</i></span></div>
-    </div>` : '';
 
   const sinDatos = (!ctx.hayEG || !ctx.hayEdad)
     ? `<div class="alerta">${ICONO_AVISO}<div><b>Faltan datos</b>
        Sin edad gestacional y edad cronológica no se puede marcar la fila que corresponde al paciente.</div></div>` : '';
+  const recomendado = bloqueRecomendado(m, ctx, false);
 
   return `<article class="ficha">
     <header class="ficha__cab">
@@ -263,7 +299,7 @@ function fichaAnti(item, ctx) {
         <div class="ficha__conc">${esc(m.fuente || 'SOCHINF 2020')}</div></div>
     </header>
     <div class="ficha__cuerpo">
-      ${carga}
+      ${recomendado}
       ${sinDatos}
       <div class="tabla-scroll">
         <table class="tabla"><thead><tr>${cabecera}</tr></thead><tbody>${filas}</tbody></table>
