@@ -1,5 +1,5 @@
 /* NeoDosis HSJD — service worker: la app queda disponible sin conexión. */
-const CACHE = 'neodosis-v3';
+const CACHE = 'neodosis-v4';
 const ARCHIVOS = [
   './', './index.html', './css/styles.css',
   './js/calculo.js', './js/data.js', './js/antimicrobianos.js', './js/app.js',

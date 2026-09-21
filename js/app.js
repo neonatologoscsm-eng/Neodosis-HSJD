@@ -99,13 +99,103 @@ CATALOGO.push({
   sub: 'N° de TET, distancia a la boca y cardioversión',
   alias: 'tet tubo endotraqueal intubacion cardioversion joules paro'
 });
+/* La lista de selección es un único listado alfabético, sin secciones: cada
+   fármaco lleva escrito de qué tabla de la planilla viene. */
+const TIPOS = {
+  'Bolos': 'Bolo', 'Infusiones continuas': 'Infusión continua',
+  'Antibióticos': 'Antibiótico', 'Antivirales': 'Antiviral',
+  'Antifúngicos': 'Antifúngico', 'Otros cálculos': 'Otro cálculo'
+};
 CATALOGO.forEach(c => {
-  c.busca = sinTildes(c.nombre + ' ' + (c.sub || '') + ' ' + (c.alias || ''));
+  c.tipoTxt = TIPOS[c.grupo] || c.grupo;
+  c.busca = sinTildes(c.nombre + ' ' + (c.sub || '') + ' ' + (c.alias || '') + ' ' + c.tipoTxt);
   /* Etiqueta corta para los chips: distingue el bolo de la infusión continua. */
   c.chip = c.nombre + (c.tipo === 'infusion' ? ' · infusión' : '');
 });
 const porId = id => CATALOGO.find(c => c.id === id);
 const GRUPOS = ['Bolos', 'Infusiones continuas', 'Antibióticos', 'Antivirales', 'Antifúngicos', 'Otros cálculos'];
+/* Orden alfabético en español: ignora tildes y mayúsculas. */
+const ORDEN = new Intl.Collator('es', { sensitivity: 'base', numeric: true });
+const CATALOGO_AZ = CATALOGO.slice()
+  .sort((a, b) => ORDEN.compare(a.nombre, b.nombre) || ORDEN.compare(a.tipoTxt, b.tipoTxt));
+
+/* ====================================================================
+   INTERVALO RECOMENDADO PARA ESTE PACIENTE
+   Toda ficha encabeza con el intervalo que corresponde a la EG corregida,
+   la edad cronológica y el peso ingresados. Donde la planilla no define
+   intervalo, la ficha lo dice en vez de dejar el dato en blanco.
+   ==================================================================== */
+
+/* Pacientes de prueba con el mismo peso: sirven para saber si una fórmula
+   de la planilla depende de la EG corregida o de la edad cronológica y, por
+   tanto, si es lícito mostrar su resultado cuando faltan esos datos. */
+const PRUEBAS_EDAD = [[25, 1], [29, 10], [33, 20], [39, 45]]
+  .map(([eg, d]) => NeoCalc.contexto({ pesoG: 1500, edadDias: d, egSem: eg, egDia: 0 }));
+
+function dependeDeEdad(fn) {
+  if (typeof fn !== 'function') return false;
+  let base;
+  try { base = fn(PRUEBAS_EDAD[0]); } catch (e) { return true; }
+  return PRUEBAS_EDAD.some(c => { try { return fn(c) !== base; } catch (e) { return true; } });
+}
+
+/** Datos del paciente que determinan dosis e intervalo. */
+function criteriosPaciente(ctx) {
+  const c = [];
+  if (ctx.hayEG) c.push(`EGC ${ctx.egcSem} + ${Math.round(ctx.egcD)} d`);
+  if (ctx.hayEdad) c.push(`${ctx.d} ${ctx.d === 1 ? 'día' : 'días'} de vida`);
+  if (ctx.hayPeso) c.push(`${num(ctx.g, 0)} g`);
+  return c.join(' · ');
+}
+
+const insignia = (t, extra) => `<span class="reco__intervalo${extra || ''}">${t}</span>`;
+const FALTA_DATO = insignia('requiere EG y edad', ' reco__intervalo--falta');
+
+function filaReco(esquema, dosis, intervalo, detalle) {
+  return `<div class="reco__item">
+    ${esquema ? `<span class="reco__esq">${esc(esquema)}</span>` : ''}
+    ${dosis ? `<span class="reco__dosis">${dosis}</span>` : ''}
+    ${intervalo}
+    ${detalle ? `<span class="reco__det">${esc(detalle)}</span>` : ''}
+  </div>`;
+}
+
+function bloqueReco(etiqueta, filas, clase) {
+  return `<div class="reco${clase || ''}">
+    <div class="reco__etq">${esc(etiqueta)}</div>
+    ${filas.join('')}
+  </div>`;
+}
+
+/** Antimicrobianos: dosis e intervalo que la planilla asigna a este paciente. */
+function recoAnti(m, ctx) {
+  const faltan = !ctx.hayEG || !ctx.hayEdad;
+  const filas = m.esquemas.map(e => {
+    const r = NeoCalc.anti(m, e, ctx, XL_FALSE);
+    const dosisDepende = faltan && dependeDeEdad(e.dosis);
+    const interDepende = faltan && dependeDeEdad(e.intervalo);
+
+    const dosis = dosisDepende ? '<span class="reco__nulo">dosis según EG y edad</span>'
+      : r.nulo ? '<span class="reco__nulo">sin resultado en la planilla</span>'
+      : `<b>${numDosis(r.dosis)}</b> ${esc(r.unidad)}`;
+
+    const intervalo = interDepende ? FALTA_DATO
+      : r.intervalo === null ? insignia('sin intervalo en la planilla', ' reco__intervalo--falta')
+      : esNum(r.intervalo) ? insignia(`cada ${r.intervalo} h`) : insignia(esc(r.intervalo));
+
+    const detalle = (!dosisDepende && !r.nulo) ? `${numDosis(r.dpk)} ${esc(r.unidad)}/Kg por dosis` : '';
+    return filaReco(m.esquemas.length > 1 ? (e.label || 'Dosis') : '', dosis, intervalo, detalle);
+  });
+  const criterios = criteriosPaciente(ctx);
+  return bloqueReco('Para este paciente' + (criterios ? ' · ' + criterios : ''), filas);
+}
+
+/** Bolos, infusiones y otros cálculos: la planilla no fija un intervalo. */
+function recoNota(texto, detalle, ctx) {
+  const criterios = criteriosPaciente(ctx);
+  return bloqueReco('Intervalo' + (criterios ? ' · ' + criterios : ''),
+    [filaReco('', '', insignia(esc(texto)), detalle)], ' reco--nota');
+}
 
 /* ====================================================================
    FICHAS DE RESULTADO
@@ -134,7 +224,8 @@ function fichaBolo(item, ctx) {
         <div class="ficha__conc">${esc(m.conc)}</div></div>
       <span class="via">${esc(m.via)}</span>
     </header>
-    <div class="ficha__cuerpo">${lineas}</div>
+    <div class="ficha__cuerpo">${recoNota('Dosis puntual, sin intervalo en la planilla',
+        'Repetir sólo según indicación médica.', ctx)}${lineas}</div>
     <footer class="ficha__pie">
       <span><b>Diluir en:</b> ${esc(m.diluir)}</span>
       <span><b>Tiempo:</b> ${esc(m.tiempo)}</span>
@@ -155,6 +246,8 @@ function fichaInfusion(item, ctx) {
       <span class="via">Infusión</span>
     </header>
     <div class="ficha__cuerpo">
+      ${recoNota('Infusión continua, sin intervalo',
+        'Titular dentro del rango recomendado: ' + inf.rango + '.', ctx)}
       <div class="ajuste">
         <label for="inf-${idHtml(clave)}">Dosis en 1 cc</label>
         <input type="number" id="inf-${idHtml(clave)}" data-infusion="${esc(clave)}"
@@ -215,6 +308,7 @@ function fichaAnti(item, ctx) {
       <span class="via">${esc(m.via)}</span>
     </header>
     <div class="ficha__cuerpo">
+      ${recoAnti(m, ctx)}
       <div class="tabla-scroll">
         <table class="tabla">
           <thead><tr><th>Esquema</th><th>Dosis por Kg</th><th>Dosis a administrar</th>
@@ -250,6 +344,7 @@ function fichaIG(ctx) {
       <span class="via">EV</span>
     </header>
     <div class="ficha__cuerpo">
+      ${recoNota('Dosis única', 'La planilla no repite la dosis; el intervalo lo indica el médico tratante.', ctx)}
       <div class="ajuste">
         <label for="igPres">Presentación</label>
         <select id="igPres">
@@ -376,7 +471,7 @@ function pintarDerivados() {
 
 function pintarLista() {
   const q = sinTildes($('#inBuscar').value.trim());
-  const coinciden = CATALOGO.filter(c => !q || c.busca.includes(q));
+  const coinciden = CATALOGO_AZ.filter(c => !q || c.busca.includes(q));
 
   /* chips de lo ya seleccionado */
   const cont = $('#seleccionados');
@@ -395,30 +490,31 @@ function pintarLista() {
     return;
   }
 
-  const html = GRUPOS.map(g => {
-    const items = coinciden.filter(c => c.grupo === g);
-    if (!items.length) return '';
-    const todos = items.every(c => estado.sel.includes(c.id));
-    return `
-      <div class="lista__grupo">
-        <h3>${esc(g)}</h3>
-        <button type="button" class="boton boton--texto" data-grupo="${esc(g)}" data-marcar="${todos ? '0' : '1'}">
-          ${todos ? 'Quitar todos' : 'Seleccionar todos'}
-        </button>
-      </div>
-      ${items.map(c => {
-        const marcada = estado.sel.includes(c.id);
-        return `<button type="button" class="opcion${marcada ? ' is-marcada' : ''}" data-id="${esc(c.id)}"
-                  aria-pressed="${marcada}">
-          <span class="opcion__caja">${ICONO_CHECK}</span>
-          <span class="opcion__txt">
-            <span class="opcion__nombre">${esc(c.nombre)}</span>
-            <span class="opcion__sub">${esc(c.sub || '')}</span>
-          </span>
-        </button>`;
-      }).join('')}`;
+  /* Un solo listado alfabético con todos los fármacos: la etiqueta de cada
+     opción dice de qué tabla viene (bolo, infusión, antibiótico…). */
+  const todos = coinciden.every(c => estado.sel.includes(c.id));
+  const n = coinciden.length;
+  const cabecera = `
+    <div class="lista__grupo">
+      <h3>${n} ${n === 1 ? 'fármaco' : 'fármacos'} · orden alfabético</h3>
+      <button type="button" class="boton boton--texto" data-todos="${todos ? '0' : '1'}">
+        ${todos ? 'Quitar todos' : 'Seleccionar todos'}
+      </button>
+    </div>`;
+
+  const opciones = coinciden.map(c => {
+    const marcada = estado.sel.includes(c.id);
+    return `<button type="button" class="opcion${marcada ? ' is-marcada' : ''}" data-id="${esc(c.id)}"
+              aria-pressed="${marcada}">
+      <span class="opcion__caja">${ICONO_CHECK}</span>
+      <span class="opcion__txt">
+        <span class="opcion__nombre">${esc(c.nombre)}<span class="etiqueta-tipo">${esc(c.tipoTxt)}</span></span>
+        <span class="opcion__sub">${esc(c.sub || '')}</span>
+      </span>
+    </button>`;
   }).join('');
-  $('#lista').innerHTML = html;
+
+  $('#lista').innerHTML = cabecera + opciones;
 }
 
 function pintarResultados() {
@@ -561,11 +657,11 @@ function init() {
     const quitar = ev.target.closest('[data-quitar]');
     if (quitar) { alternar(quitar.dataset.quitar); pintarLista(); actualizarAvanzar(); return; }
     if (ev.target.closest('[data-vaciar]')) { estado.sel = []; guardar(); pintarLista(); actualizarAvanzar(); return; }
-    const grupo = ev.target.closest('[data-grupo]');
-    if (grupo) {
+    const todos = ev.target.closest('[data-todos]');
+    if (todos) {
       const q = sinTildes($('#inBuscar').value.trim());
-      const items = CATALOGO.filter(c => c.grupo === grupo.dataset.grupo && (!q || c.busca.includes(q)));
-      if (grupo.dataset.marcar === '1') items.forEach(c => { if (!estado.sel.includes(c.id)) estado.sel.push(c.id); });
+      const items = CATALOGO_AZ.filter(c => !q || c.busca.includes(q));
+      if (todos.dataset.todos === '1') items.forEach(c => { if (!estado.sel.includes(c.id)) estado.sel.push(c.id); });
       else estado.sel = estado.sel.filter(id => !items.some(c => c.id === id));
       guardar(); pintarLista(); actualizarAvanzar();
     }

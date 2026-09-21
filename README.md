@@ -34,11 +34,15 @@ La app trabaja en tres pasos:
    **edad cronológica** (días de vida o fecha de nacimiento). El peso es lo único obligatorio; la EG y
    la edad se usan para ajustar los antimicrobianos. Bajo «Datos para la ficha impresa» pueden
    agregarse nombre, cupo y diagnóstico.
-2. **Fármacos** — se escribe parte del nombre para filtrar y se marcan todos los que se quiera
-   consultar. Los seleccionados quedan como chips arriba y cada grupo tiene «Seleccionar todos»
-   (con eso se obtiene el contenido completo de la planilla).
+2. **Fármacos** — **un único listado alfabético** con los 75 fármacos y cálculos de la planilla,
+   sin separarlos por tipo: cada opción lleva una etiqueta (*bolo*, *infusión continua*,
+   *antibiótico*, *antiviral*, *antifúngico*, *otro cálculo*) que dice de qué tabla viene. Se
+   escribe parte del nombre —o del tipo— para filtrar, se marcan todos los que se quiera consultar
+   y los seleccionados quedan como chips arriba. «Seleccionar todos» marca lo que esté a la vista
+   (todo el listado, o sólo lo filtrado).
 3. **Dosis** — la app muestra únicamente los fármacos pedidos, con sus dosis, volúmenes,
    intervalos y preparaciones, más el botón **Imprimir** para dejar la hoja en la ficha.
+   Cada ficha **encabeza con el intervalo que corresponde a este paciente** (ver más abajo).
 
 Se abre con `index.html` en cualquier navegador: no necesita servidor, internet ni instalación.
 Los datos quedan guardados en el navegador (`localStorage`) hasta que se presiona
@@ -55,6 +59,27 @@ puede añadirse a la pantalla de inicio y se abre como aplicación.
 python3 -m http.server 8080
 # luego abrir http://localhost:8080
 ```
+
+## Intervalo recomendado en cada ficha
+
+Toda ficha de resultado empieza con un bloque que resume **qué corresponde a este
+paciente** según la EG corregida, la edad cronológica y el peso ingresados (los tres
+criterios van escritos en el encabezado del bloque):
+
+- **Antimicrobianos** — dosis a administrar, mg/Kg por dosis y el **intervalo en grande**
+  (`cada 12 h`, `Por una vez`, etc.) para cada esquema (bacteriemia, meningitis, carga,
+  profilaxis…). Es el mismo valor de la columna «Intervalo» de la tabla, que se mantiene:
+  sólo deja de haber que buscarlo. Si falta la EG o la edad y la fórmula depende de ellas,
+  el bloque dice **«requiere EG y edad»** en vez de mostrar un número calculado con ceros;
+  las fórmulas que no dependen de esos datos (por ejemplo azitromicina, cada 24 h) sí se muestran.
+- **Bolos** — la planilla no define intervalo, así que la ficha lo dice: *«Dosis puntual, sin
+  intervalo en la planilla · repetir sólo según indicación médica»*.
+- **Infusiones continuas** — *«Infusión continua, sin intervalo»*, con el rango recomendado
+  de la planilla para titular.
+- **Inmunoglobulina EV** — *«Dosis única»*; la planilla no repite la dosis.
+
+Donde la planilla no define un intervalo, la app **lo dice explícitamente** en vez de dejar el
+dato en blanco: no inventa intervalos que la planilla no contiene.
 
 ## Qué contiene (equivalencia con la planilla)
 
