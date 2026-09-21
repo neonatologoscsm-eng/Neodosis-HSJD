@@ -250,9 +250,17 @@ main{max-width:980px;margin:0 auto;padding:0 clamp(1rem,4vw,1.5rem)}
 .opcion.is-marcada .opcion__caja{background:var(--primario);border-color:var(--primario);color:var(--sobre-primario)}
 .opcion__caja svg{width:14px;height:14px}
 .opcion__txt{flex:1;min-width:0}
-.opcion__nombre{font-size:.95rem;font-weight:500}
-.opcion__sub{font-size:.78rem;color:var(--sobre-superficie-var);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.opcion__nombre{display:block;font-size:.95rem;font-weight:500}
+.opcion__sub{display:block;font-size:.78rem;color:var(--sobre-superficie-var);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .opcion.is-marcada .opcion__sub{color:inherit;opacity:.8}
+/* La lista es un único listado alfabético: cada opción dice de qué tabla viene. */
+.etiqueta-tipo{
+  display:inline-block;margin-left:.45rem;vertical-align:1px;
+  font-size:.64rem;font-weight:500;letter-spacing:.05em;text-transform:uppercase;white-space:nowrap;
+  background:var(--superficie-2);color:var(--sobre-superficie-var);
+  border-radius:var(--r-xs);padding:.1rem .35rem;
+}
+.opcion.is-marcada .etiqueta-tipo{background:var(--superficie);color:var(--sobre-superficie-var)}
 .vacio{padding:2.5rem 1rem;text-align:center;color:var(--sobre-superficie-var);font-size:.9rem}
 
 /* --------------------------- Resultados ----------------------------- */
@@ -323,6 +331,40 @@ main{max-width:980px;margin:0 auto;padding:0 clamp(1rem,4vw,1.5rem)}
 .alerta b{display:block;font-weight:500;margin-bottom:.1rem}
 .alerta svg{width:18px;height:18px;flex:none;margin-top:.1rem}
 .nota{margin:.5rem 0 .3rem;font-size:.78rem;color:var(--sobre-superficie-var)}
+
+/* ------- Dosis e intervalo que corresponden a este paciente --------- */
+.reco{
+  background:var(--primario-cont);color:var(--sobre-primario-cont);
+  border-radius:var(--r-s);padding:.6rem .8rem;margin:.75rem 0 .1rem;
+}
+.reco--nota{background:var(--superficie-1);color:var(--sobre-superficie)}
+.reco__etq{
+  font-size:.68rem;font-weight:500;letter-spacing:.07em;text-transform:uppercase;
+  opacity:.75;margin-bottom:.35rem;
+}
+.reco__item{
+  display:flex;align-items:baseline;gap:.65rem;flex-wrap:wrap;padding:.35rem 0;
+  border-top:1px solid color-mix(in srgb, currentColor 20%, transparent);
+}
+.reco__item:first-of-type{border-top:0}
+.reco__esq{
+  font-size:.72rem;font-weight:500;letter-spacing:.05em;text-transform:uppercase;
+  min-width:6.5rem;opacity:.85;
+}
+.reco__dosis{font-variant-numeric:tabular-nums}
+.reco__dosis b{font-size:1.25rem;font-weight:500;letter-spacing:-.02em}
+.reco__intervalo{
+  background:var(--primario);color:var(--sobre-primario);border-radius:var(--r-xs);
+  padding:.2rem .6rem;font-weight:500;font-size:.95rem;
+}
+.reco--nota .reco__intervalo{background:var(--superficie-2);color:var(--sobre-superficie);font-size:.85rem}
+.reco__intervalo--falta{background:var(--error-cont);color:var(--error);font-size:.8rem}
+.reco__nulo{font-size:.85rem;font-weight:500;color:var(--error)}
+.reco__det{font-size:.78rem;opacity:.8;margin-left:auto;white-space:nowrap}
+@media (max-width:600px){
+  .reco__esq{min-width:100%}
+  .reco__det{margin-left:0;width:100%;white-space:normal}
+}
 
 .fx{
   display:inline-grid;place-items:center;width:24px;height:24px;margin-left:.3rem;vertical-align:middle;
@@ -418,5 +460,9 @@ main{max-width:980px;margin:0 auto;padding:0 clamp(1rem,4vw,1.5rem)}
   .icono,.pasos,.barra,.dialogo,.skip-link,.fx,.acciones,.buscador,.instalar{display:none !important}
   .ficha{break-inside:avoid;page-break-inside:avoid;border-color:#bbb}
   .resumen{background:#fff;border:1px solid #bbb}
+  .reco{background:#eef4f8;color:#000;border:1px solid #c3d3dd}
+  .reco--nota{background:#f5f5f5;border-color:#ddd}
+  .reco__intervalo{background:#fff;color:#00405c;border:1px solid #9fb6c4}
+  .reco--nota .reco__intervalo{color:#333;border-color:#ccc}
   @page{margin:12mm 10mm}
 }
