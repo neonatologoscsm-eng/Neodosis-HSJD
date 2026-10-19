@@ -87,7 +87,7 @@ dato en blanco: no inventa intervalos que la planilla no contiene.
 |---|---|---|
 | `Medicamentos` | Grupos **Bolos** e **Infusiones continuas** | 15 bolos (19 esquemas: carga/mantención, EV/ET) y 13 infusiones continuas |
 | `Otros medicamentos` | Grupos **Bolos** e **Infusiones continuas** | 6 bolos (albúmina, amiodarona, atropina, gluconato de calcio, sulfato de magnesio, verapamilo) y 5 infusiones (amiodarona, ketamina, furosemida, isoproterenol, vasopresina) |
-| `Antimicrobianos` | Grupos **Antibióticos**, **Antivirales** y **Antifúngicos** | 22 antibióticos, 7 antivirales y 4 antifúngicos, con esquemas de bacteriemia/meningitis, profilaxis/tratamiento y carga/mantención, y volúmenes con y sin restricción de volumen |
+| `Antimicrobianos` | Grupos **Antibióticos**, **Antivirales** y **Antifúngicos** | 22 antibióticos, 7 antivirales y 4 antifúngicos, con esquemas de bacteriemia/meningitis, profilaxis/tratamiento y carga/mantención, y las concentraciones a preparar con y sin restricción de volumen |
 | `Inmunoglobulina` | **Otros cálculos → Inmunoglobulina EV** | Dosis, volumen, velocidades de infusión, hoja de control de signos vitales y datos de lote/firma |
 | `Reanimación` | **Otros cálculos → Reanimación** | N° de TET, distancia a la boca, cardioversión y adrenalina |
 | `Versión Para Imprimir` | Botón **Imprimir** del paso 3 | Hoja del paciente con los fármacos consultados |
@@ -153,9 +153,24 @@ corregir el documento original.
 | **Peso en «Otros medicamentos»** | Esa hoja tiene su propia celda de peso, independiente del resto del libro (quedó en 800 g) | La app usa un **único peso** para todas las secciones |
 | **Superficie corporal** | La hoja «Medicamentos» usa `0,05·Kg + 0,05` y «Otros medicamentos» usa `(4·Kg + 7)/(90 + Kg)` | Se muestran ambas, identificadas por su fórmula |
 
-Además, la app muestra los volúmenes con **dos decimales** (la planilla mostraba
-uno en la hoja de antimicrobianos) y el tiempo total de infusión de la
-inmunoglobulina, que en la planilla es una casilla vacía para completar a mano.
+Además, la app muestra el tiempo total de infusión de la inmunoglobulina, que en
+la planilla es una casilla vacía para completar a mano.
+
+## Dosis y concentración a preparar
+
+Junto a la dosis calculada, las fichas muestran la **concentración a la que hay
+que preparar el fármaco** —la columna «Concentración» de la planilla— en lugar
+del volumen en mL:
+
+- **Bolos** (y las líneas de adrenalina de la ficha de Reanimación): `0,023 mg ·
+  preparar a 0,1 mg/mL (1:10.000)`.
+- **Antimicrobianos**: las dos últimas columnas de la tabla son la
+  **concentración sin restricción** y **con restricción de volumen**.
+- La **inmunoglobulina** mantiene su volumen total y sus velocidades en mL/h, y
+  las **infusiones continuas** su preparación en 24 mL.
+
+Las fórmulas de volumen de la planilla siguen disponibles en el diálogo `ƒx` de
+cada línea, rotuladas como «en la planilla».
 
 ---
 

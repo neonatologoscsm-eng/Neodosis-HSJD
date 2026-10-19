@@ -200,6 +200,19 @@ function recoNota(texto, detalle, ctx) {
 /* ====================================================================
    FICHAS DE RESULTADO
    ==================================================================== */
+
+/** Concentración a preparar (columna «Concentración» de la planilla), al lado
+    de la dosis: «0,1 mg/mL (1:10.000)» se parte en número + resto para que el
+    número quede en grande como el de la dosis. */
+function valorConc(txt) {
+  if (!txt) return '';
+  const m = /^\s*([\d.,]+)\s*(.*)$/.exec(txt);
+  const n = m ? m[1] : '';
+  const resto = m ? m[2] : txt;
+  return `<span class="valor valor--conc"><span class="valor__etq">preparar a</span>${
+    n ? `<b>${esc(n)}</b>` : ''}<i>${esc(resto)}</i></span>`;
+}
+
 function fichaBolo(item, ctx) {
   const m = item.ref;
   const lineas = m.lineas.map(l => {
@@ -209,19 +222,18 @@ function fichaBolo(item, ctx) {
         <div>
           ${l.etiqueta ? `<div class="linea__etq">${esc(l.etiqueta)}</div>` : ''}
           <div class="linea__det">${esc(l.dosisTxt)}${fx(m.nombre + (l.etiqueta ? ' · ' + l.etiqueta : ''),
-            [['Dosis a administrar', l.xlDosis], ['Volumen a administrar', l.xlVol]])}</div>
+            [['Dosis a administrar', l.xlDosis], ['Volumen a administrar (en la planilla)', l.xlVol]])}</div>
         </div>
         <div class="valores">
           <span class="valor"><b>${numDosis(r.dosis)}</b><i>${esc(l.unidad)}</i></span>
-          ${r.vol != null ? `<span class="valor valor--vol"><b>${numVol(r.vol)}</b><i>mL</i></span>` : ''}
+          ${valorConc(m.conc)}
         </div>
       </div>`;
   }).join('');
 
   return `<article class="ficha">
     <header class="ficha__cab">
-      <div><div class="ficha__nombre">${esc(m.nombre)}</div>
-        <div class="ficha__conc">${esc(m.conc)}</div></div>
+      <div><div class="ficha__nombre">${esc(m.nombre)}</div></div>
       <span class="via">${esc(m.via)}</span>
     </header>
     <div class="ficha__cuerpo">${recoNota('Dosis puntual, sin intervalo en la planilla',
@@ -279,21 +291,20 @@ function fichaAnti(item, ctx) {
     const inter = r.intervalo === null ? '<span class="nulo">sin resultado</span>'
       : esNum(r.intervalo) ? `<span class="intervalo">c/${r.intervalo} h</span>`
       : `<span class="intervalo">${esc(r.intervalo)}</span>`;
-    let vSin = '—', vCon = '—';
-    if (r.volTxt) vSin = `<span class="num">${esc(r.volTxt)}</span>`;
-    else {
-      if (r.volSin != null) vSin = `<span class="vol">${numVol(r.volSin)}</span> <span class="num">mL</span>`;
-      if (r.volCon != null) vCon = `<span class="vol">${numVol(r.volCon)}</span> <span class="num">mL</span>`;
-    }
+    /* Las dos columnas muestran la concentración a preparar (columna
+       «Concentración» de la planilla), no el volumen a administrar. */
+    const cSin = m.concSin ? `<span class="conc-val">${esc(m.concSin)}</span>` : '—';
+    const cCon = m.concCon ? `<span class="conc-val">${esc(m.concCon)}</span>` : '—';
     return `<tr>
       <td><span class="esq">${esc(e.label || 'Dosis')}</span>${fx(m.nombre + (e.label ? ' · ' + e.label : ''),
         [['Dosis por Kg', e.dosisXl], ['Intervalo', e.intervaloXl],
-         ['Volumen sin restricción', e.volSinXl], ['Volumen con restricción', e.volConXl]])}</td>
+         ['Volumen sin restricción (en la planilla)', e.volSinXl],
+         ['Volumen con restricción (en la planilla)', e.volConXl]])}</td>
       <td class="num" data-etq="Dosis por Kg">${r.nulo ? '<span class="nulo">sin resultado</span>' : numDosis(r.dpk) + ' ' + r.unidad + '/Kg'}</td>
       <td class="num fuerte" data-etq="Dosis a administrar">${r.dosis != null ? numDosis(r.dosis) + ' ' + r.unidad : '—'}</td>
       <td class="num" data-etq="Intervalo">${inter}</td>
-      <td class="num" data-etq="Administrar (sin restricción)">${vSin}</td>
-      <td class="num" data-etq="Administrar (con restricción)">${vCon}</td>
+      <td class="conc" data-etq="Concentración (sin restricción)">${cSin}</td>
+      <td class="conc" data-etq="Concentración (con restricción)">${cCon}</td>
     </tr>`;
   }).join('');
 
@@ -302,9 +313,7 @@ function fichaAnti(item, ctx) {
 
   return `<article class="ficha">
     <header class="ficha__cab">
-      <div><div class="ficha__nombre">${esc(m.nombre)}</div>
-        <div class="ficha__conc">Sin restricción de volumen: ${esc(m.concSin || '—')}${
-          m.concCon ? ' · Con restricción: ' + esc(m.concCon) : ''}</div></div>
+      <div><div class="ficha__nombre">${esc(m.nombre)}</div></div>
       <span class="via">${esc(m.via)}</span>
     </header>
     <div class="ficha__cuerpo">
@@ -312,7 +321,7 @@ function fichaAnti(item, ctx) {
       <div class="tabla-scroll">
         <table class="tabla">
           <thead><tr><th>Esquema</th><th>Dosis por Kg</th><th>Dosis a administrar</th>
-            <th>Intervalo</th><th>Administrar<br>sin restricción</th><th>Administrar<br>con restricción</th></tr></thead>
+            <th>Intervalo</th><th>Concentración<br>sin restricción</th><th>Concentración<br>con restricción</th></tr></thead>
           <tbody>${filas}</tbody>
         </table>
       </div>
@@ -413,10 +422,10 @@ function fichaReanimacion(ctx) {
     const b = NeoCalc.bolo(l, ctx);
     return `<div class="linea">
       <div><div class="linea__etq">Adrenalina ${esc(l.etiqueta)}</div>
-        <div class="linea__det">${esc(l.dosisTxt)} · 0,1 mg/mL</div></div>
+        <div class="linea__det">${esc(l.dosisTxt)}</div></div>
       <div class="valores">
         <span class="valor"><b>${numDosis(b.dosis)}</b><i>mg</i></span>
-        <span class="valor valor--vol"><b>${numVol(b.vol)}</b><i>mL</i></span>
+        ${valorConc(adr.conc)}
       </div></div>`;
   }).join('');
 
