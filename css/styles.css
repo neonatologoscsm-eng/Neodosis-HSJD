@@ -302,6 +302,12 @@ main{max-width:980px;margin:0 auto;padding:0 clamp(1rem,4vw,1.5rem)}
 .valor b{font-size:1.35rem;font-weight:500;letter-spacing:-.02em;font-variant-numeric:tabular-nums}
 .valor i{font-style:normal;font-size:.8rem;color:var(--sobre-superficie-var)}
 .valor--vol b{color:var(--terciario)}
+.valor--conc{white-space:normal;flex-wrap:wrap;justify-content:flex-end;max-width:min(100%,16rem)}
+.valor--conc b{color:var(--terciario);font-size:1.2rem}
+.valor__etq{
+  font-size:.62rem;font-weight:500;letter-spacing:.06em;text-transform:uppercase;
+  color:var(--sobre-superficie-var);
+}
 .valor--nulo b{font-size:.95rem;color:var(--error)}
 
 .tabla{width:100%;border-collapse:collapse;font-size:.85rem}
@@ -316,6 +322,9 @@ main{max-width:980px;margin:0 auto;padding:0 clamp(1rem,4vw,1.5rem)}
 .esq{font-weight:500;color:var(--primario);font-size:.8rem}
 .fuerte{font-weight:500;font-size:1rem}
 .vol{font-weight:500;font-size:1rem;color:var(--terciario)}
+/* Concentración a preparar: ocupa el lugar que antes tenía el volumen en mL. */
+.conc{text-align:left;white-space:normal}
+.conc-val{font-weight:500;font-size:.95rem;color:var(--terciario)}
 .nulo{color:var(--error);font-size:.78rem;font-weight:500}
 .intervalo{
   display:inline-block;background:var(--superficie-2);border-radius:var(--r-xs);
