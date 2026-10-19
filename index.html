@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>NeoDosis HSJD</title>
+<meta name="description" content="Calculadora de dosis, infusiones y antimicrobianos de la Unidad de Neonatología del Hospital San Juan de Dios.">
+<meta name="theme-color" content="#00658f">
+<meta name="theme-color" media="(prefers-color-scheme: dark)" content="#0f1416">
+<meta name="format-detection" content="telephone=no">
+
+<!-- Instalación en iPhone / iPad: app a pantalla completa desde «Añadir a pantalla de inicio» -->
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="NeoDosis">
+<link rel="icon" href="assets/icono-192.png">
+<link rel="apple-touch-icon" sizes="180x180" href="assets/icono-ios-180.png">
+<link rel="apple-touch-startup-image" media="(device-width:430px) and (device-height:932px) and (-webkit-device-pixel-ratio:3) and (orientation:portrait)" href="assets/inicio-1290x2796.png">
+<link rel="apple-touch-startup-image" media="(device-width:428px) and (device-height:926px) and (-webkit-device-pixel-ratio:3) and (orientation:portrait)" href="assets/inicio-1284x2778.png">
+<link rel="apple-touch-startup-image" media="(device-width:393px) and (device-height:852px) and (-webkit-device-pixel-ratio:3) and (orientation:portrait)" href="assets/inicio-1179x2556.png">
+<link rel="apple-touch-startup-image" media="(device-width:390px) and (device-height:844px) and (-webkit-device-pixel-ratio:3) and (orientation:portrait)" href="assets/inicio-1170x2532.png">
+<link rel="apple-touch-startup-image" media="(device-width:375px) and (device-height:812px) and (-webkit-device-pixel-ratio:3) and (orientation:portrait)" href="assets/inicio-1125x2436.png">
+<link rel="apple-touch-startup-image" media="(device-width:360px) and (device-height:780px) and (-webkit-device-pixel-ratio:3) and (orientation:portrait)" href="assets/inicio-1080x2340.png">
+<link rel="apple-touch-startup-image" media="(device-width:414px) and (device-height:896px) and (-webkit-device-pixel-ratio:2) and (orientation:portrait)" href="assets/inicio-828x1792.png">
+<link rel="apple-touch-startup-image" media="(device-width:375px) and (device-height:667px) and (-webkit-device-pixel-ratio:2) and (orientation:portrait)" href="assets/inicio-750x1334.png">
+<link rel="apple-touch-startup-image" media="(device-width:320px) and (device-height:568px) and (-webkit-device-pixel-ratio:2) and (orientation:portrait)" href="assets/inicio-640x1136.png">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap">
+<link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+
+<a class="skip-link" href="#contenido">Ir al contenido</a>
+
+
+<header class="appbar">
+  <img src="assets/logo-neonatologia-hsjd.jpg" alt="" class="appbar__logo">
+  <div class="appbar__titulo">
+    <h1>NeoDosis</h1>
+    <p>Medicamentos de alto riesgo · Neonatología HSJD</p>
+  </div>
+  <button type="button" class="icono" id="btnTema" title="Cambiar tema" aria-label="Cambiar tema">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18Zm0 2v14a7 7 0 0 1 0-14Z"/></svg>
+  </button>
+  <button type="button" class="icono" id="btnImprimir" title="Imprimir" aria-label="Imprimir" hidden>
+    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M17 7V3H7v4H4v9h3v5h10v-5h3V7h-3ZM9 5h6v2H9V5Zm6 14H9v-4h6v4Zm4-5h-2v-1H7v1H5V9h14v5Z"/></svg>
+  </button>
+</header>
+
+<div class="instalar" id="instalar" hidden>
+  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2 8 6h3v8h2V6h3l-4-4ZM5 18v-6H3v6a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-6h-2v6H5Z"/></svg>
+  <p id="instalarTexto"></p>
+  <button type="button" class="boton boton--texto" id="instalarAccion" hidden>Instalar</button>
+  <button type="button" class="icono icono--chico" id="instalarCerrar" aria-label="Cerrar aviso">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12 19 6.41Z"/></svg>
+  </button>
+</div>
+
+<nav class="pasos" id="pasos" aria-label="Pasos">
+  <button type="button" class="paso-chip is-activo" data-paso="1"><span class="paso-chip__n">1</span>Paciente</button>
+  <span class="paso-linea"></span>
+  <button type="button" class="paso-chip" data-paso="2"><span class="paso-chip__n">2</span>Fármacos</button>
+  <span class="paso-linea"></span>
+  <button type="button" class="paso-chip" data-paso="3"><span class="paso-chip__n">3</span>Dosis</button>
+</nav>
+
+<main id="contenido">
+  <!-- ─────────────────────────── PASO 1 ─────────────────────────── -->
+  <section class="vista" id="vista-1" aria-labelledby="t1">
+    <h2 class="titulo" id="t1">Datos del paciente</h2>
+    <p class="subtitulo">El peso es obligatorio. La edad gestacional y la edad cronológica se usan para ajustar los antimicrobianos.</p>
+
+    <div class="tarjeta tarjeta--formulario">
+      <div class="campo campo--destacado">
+        <input type="number" id="inPeso" inputmode="numeric" min="200" max="8000" step="1" placeholder=" " autocomplete="off">
+        <label for="inPeso">Peso</label>
+        <span class="campo__sufijo">g</span>
+      </div>
+
+      <fieldset class="grupo">
+        <legend>Edad gestacional al nacer</legend>
+        <div class="fila">
+          <div class="campo">
+            <input type="number" id="inEGsem" inputmode="numeric" min="20" max="45" step="1" placeholder=" ">
+            <label for="inEGsem">Semanas</label>
+          </div>
+          <div class="campo">
+            <input type="number" id="inEGdia" inputmode="numeric" min="0" max="6" step="1" placeholder=" ">
+            <label for="inEGdia">Días</label>
+          </div>
+        </div>
+      </fieldset>
+
+      <fieldset class="grupo">
+        <legend>Edad cronológica</legend>
+        <div class="fila">
+          <div class="campo">
+            <input type="number" id="inEdad" inputmode="numeric" min="0" max="400" step="1" placeholder=" ">
+            <label for="inEdad">Días de vida</label>
+          </div>
+          <div class="campo">
+            <input type="date" id="inFN" placeholder=" ">
+            <label for="inFN">o fecha de nacimiento</label>
+          </div>
+        </div>
+      </fieldset>
+
+      <details class="opcionales">
+        <summary>Datos para la ficha impresa (opcional)</summary>
+        <div class="fila">
+          <div class="campo">
+            <input type="text" id="inNombre" placeholder=" " autocomplete="off">
+            <label for="inNombre">Nombre del paciente</label>
+          </div>
+          <div class="campo">
+            <input type="text" id="inCupo" placeholder=" " autocomplete="off">
+            <label for="inCupo">Cupo UCI</label>
+          </div>
+        </div>
+        <div class="campo">
+          <input type="text" id="inDiagnostico" placeholder=" " autocomplete="off">
+          <label for="inDiagnostico">Diagnóstico</label>
+        </div>
+      </details>
+
+      <div class="derivados" id="derivados"></div>
+    </div>
+  </section>
+
+  <!-- ─────────────────────────── PASO 2 ─────────────────────────── -->
+  <section class="vista" id="vista-2" hidden aria-labelledby="t2">
+    <h2 class="titulo" id="t2">¿Qué fármacos quiere consultar?</h2>
+    <p class="subtitulo">Todos los fármacos en un único listado alfabético. Escriba parte del nombre
+       —o del tipo: bolo, infusión, antibiótico— para filtrar y marque todos los que necesite.</p>
+
+    <div class="buscador">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15.5 14h-.79l-.28-.27a6.5 6.5 0 1 0-.7.7l.27.28v.79l5 4.99 1.49-1.49-4.99-5Zm-6 0a4.5 4.5 0 1 1 0-9 4.5 4.5 0 0 1 0 9Z"/></svg>
+      <input type="search" id="inBuscar" placeholder="Buscar fármaco" aria-label="Buscar fármaco" autocomplete="off">
+      <button type="button" class="icono icono--chico" id="btnBorrarBusqueda" hidden aria-label="Borrar búsqueda">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12 19 6.41Z"/></svg>
+      </button>
+    </div>
+
+    <div class="seleccionados" id="seleccionados" hidden></div>
+    <div class="lista" id="lista"></div>
+  </section>
+
+  <!-- ─────────────────────────── PASO 3 ─────────────────────────── -->
+  <section class="vista" id="vista-3" hidden aria-labelledby="t3">
+    <div class="resumen" id="resumen"></div>
+    <h2 class="titulo" id="t3">Dosis calculadas</h2>
+    <div id="resultados"></div>
+  </section>
+</main>
+
+<div class="barra" id="barra">
+  <button type="button" class="boton boton--texto" id="btnAtras" hidden>Atrás</button>
+  <button type="button" class="boton boton--relleno" id="btnAvanzar">Continuar</button>
+</div>
+
+<footer class="pie">
+  <p><strong>Uso exclusivo del equipo clínico.</strong> Réplica fiel de la planilla institucional
+     «Cálculo de medicamentos de alto riesgo». Toda dosis debe ser verificada por el médico tratante
+     y por enfermería/matronería antes de administrarse.</p>
+  <p>Unidad de Neonatología · Hospital San Juan de Dios</p>
+</footer>
+
+<div class="dialogo" id="modal" hidden>
+  <div class="dialogo__caja" role="dialog" aria-modal="true" aria-labelledby="modalTitulo">
+    <h3 id="modalTitulo">Fórmula original</h3>
+    <div id="modalCuerpo"></div>
+    <div class="dialogo__acciones">
+      <button type="button" class="boton boton--texto" id="modalCerrar">Cerrar</button>
+    </div>
+  </div>
+</div>
+
+<script src="js/calculo.js"></script>
+<script src="js/data.js"></script>
+<script src="js/antimicrobianos.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>
